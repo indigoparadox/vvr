@@ -22,7 +22,20 @@ void dump_posn( uint8_t* buf, size_t buf_sz, int depth ) {
          printf( " " );
       }
       pos_p = (uint32_t*)&(buf[j * 4]);
-      printf( "posn %d: 0x%08x\n", j, (int32_t)fix_endian( *pos_p ) );
+      printf(
+         "posn %d: les: 0x%08x/%d, bes: 0x%08x/%d, leu: %u, beu: %u, "
+         "lef: %f, bef: %f, bed: %f)\n",
+         j,
+         (int32_t)fix_endian( *pos_p ),
+         (int32_t)fix_endian( *pos_p ),
+         (int32_t)(*pos_p),
+         (int32_t)(*pos_p),
+         (int32_t)fix_endian( *pos_p ),
+         (uint32_t)(*pos_p),
+         (float)fix_endian( *pos_p ),
+         (float)(*pos_p),
+         (double)(*pos_p)
+         );
       j++;
    }
 }
