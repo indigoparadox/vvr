@@ -1,0 +1,63 @@
+#pragma endian big
+
+import type.magic;
+
+// =========================
+// Chunk Dispatchers
+// =========================
+
+struct IFF_Chunk_Base {
+    char id[4];
+    u32 size;
+
+    // Even-byte alignment (IFF rule)
+    //if (size % 2 != 0) {
+    //    u8 pad;
+    //}
+};
+
+///
+
+struct IFF_Chunk_PREF_Dispatch : IFF_Chunk_Base {
+
+    match (id) {
+        (_): u8 raw[size];
+    }
+};
+
+struct IFF_Chunk_PREF : IFF_Chunk_Base {
+    type::Magic<"VPRF"> vprf;
+    IFF_Chunk_PREF_Dispatch chunks[while( $ < size )];
+};
+
+///
+
+struct IFF_Chunk_ROOT_Dispatch : IFF_Chunk_Base {
+
+    match (id) {
+        (_): u8 raw[size];
+    }
+};
+
+///
+
+struct IFF_Chunk_Dispatch : IFF_Chunk_Base {
+    match (id) {
+        ("PREF"): IFF_Chunk_PREF [[inline]];
+        ("ROOT"): IFF_Chunk_ROOT_Dispatch chunks[while( $ < size )] [[inline]];
+        (_): u8 raw[size];
+    }
+};
+
+struct IFF_FORM {
+    type::Magic<"FORM"> id;
+    u32 size;
+    type::Magic<"VMDL"> vmdl;
+    IFF_Chunk_Dispatch chunks[while( $ < size )];
+};
+
+// =========================
+// Root
+// =========================
+
+IFF_FORM f @ 0x0;
