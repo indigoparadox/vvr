@@ -2,6 +2,22 @@
 
 import type.magic;
 
+struct Fixed_Point_32 {
+    u16 integer;
+    u16 fraction;
+};
+
+struct Coord2D {
+    Fixed_Point_32 x;
+    Fixed_Point_32 y;
+};
+
+struct Coord3D {
+    Fixed_Point_32 x;
+    Fixed_Point_32 y;
+    Fixed_Point_32 z;
+};
+
 // =========================
 // Chunk Dispatchers
 // =========================
@@ -24,11 +40,14 @@ struct IFF_Chunk_PRSM_Dispatch {
     match (id) {
         ("POLY"): {
             auto start_offset = $;
-            u64 vertices[while( $ < start_offset + size )];
+            Coord2D vertices[while( $ < start_offset + size )];
         }
         ("POSN"): {
             auto start_offset = $;
-            u64 vertices[while( $ < start_offset + size )];
+            Coord3D pos;
+            Coord3D rot;
+            Coord3D un1; // ???
+            Coord3D un2; // ???
         }
         (_): u8 raw[size];
     }
