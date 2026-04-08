@@ -31,7 +31,7 @@ struct IFF_Chunk_PREF_Dispatch {
     match (id) {
         (_): u8 raw[size];
     }
-};
+} [[ name( id )]];
 
 // =========================
 /// Handle chunks inside ROOT (3D scene data).
@@ -58,7 +58,7 @@ struct IFF_Chunk_PRSM_Dispatch {
         }
         (_): u8 raw[size];
     }
-};
+} [[ name( id )]];
 
 struct IFF_Chunk_ROOT_Dispatch {
     char id[4];
@@ -75,7 +75,7 @@ struct IFF_Chunk_ROOT_Dispatch {
             (_): u8 raw[size];
         }
     }
-};
+} [[ name( id )]];
 
 // =========================
 /// Handle top-level chunks under FORM.
@@ -104,7 +104,7 @@ struct IFF_Chunk_Dispatch {
             (_): { u8 raw[size]; }
         }
     }
-};
+} [[ name( id )]];
 
 struct IFF_FORM {
     type::Magic<"FORM"> id;
