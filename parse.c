@@ -5,7 +5,9 @@
 #include <assert.h>
 #include <string.h>
 
-#define fix_endian( x ) (((x >> 24) & 0xff) | ((x << 8) & 0xff0000) | ((x >> 8) & 0xff00) | ((x << 24) & 0xff000000))
+#define fix_endian_32( x ) (((x >> 24) & 0xff) | ((x << 8) & 0xff0000) | ((x >> 8) & 0xff00) | ((x << 24) & 0xff000000))
+
+#define fix_endian_16( x ) (((x >> 8) & 0xff) | ((x >> 8) & 0xff00))
 
 struct IFF_FORM {
    char form[4];
@@ -15,26 +17,19 @@ struct IFF_FORM {
 void dump_posn( uint8_t* buf, size_t buf_sz, int depth ) {
    int i = 0,
       j = 0;
-   uint32_t* pos_p = NULL;
+   int16_t* pos_dec_p = NULL;
+   int16_t* pos_frac_p = NULL;
 
    while( j * 4 < buf_sz ) {
       for( i = 0 ; depth > i ; i++ ) {
          printf( " " );
       }
-      pos_p = (uint32_t*)&(buf[j * 4]);
+      pos_dec_p = (int16_t*)&(buf[j * 4]);
+      pos_frac_p = (int16_t*)&(buf[(j * 4) + 2]);
       printf(
-         "posn %d: les: 0x%08x/%d, bes: 0x%08x/%d, leu: %u, beu: %u, "
-         "lef: %f, bef: %f, bed: %f)\n",
-         j,
-         (int32_t)fix_endian( *pos_p ),
-         (int32_t)fix_endian( *pos_p ),
-         (int32_t)(*pos_p),
-         (int32_t)(*pos_p),
-         (int32_t)fix_endian( *pos_p ),
-         (uint32_t)(*pos_p),
-         (float)fix_endian( *pos_p ),
-         (float)(*pos_p),
-         (double)(*pos_p)
+         "posn %d.%d\n",
+         (int16_t)fix_endian_16( *pos_dec_p ),
+         (int16_t)fix_endian_16( *pos_frac_p )
          );
       j++;
    }
@@ -60,25 +55,25 @@ void dump_sect( uint8_t* buf, size_t buf_sz, int depth ) {
          printf( "form: %c%c%c%c, sz: 0x%04x\n", 
             vvr_form_p->form[0], vvr_form_p->form[1],
             vvr_form_p->form[2], vvr_form_p->form[3],
-            fix_endian( vvr_form_p->vvr_sz ) );
+            fix_endian_32( vvr_form_p->vvr_sz ) );
 
          if(
             0 == strncmp( &(buf[dump_at]), "ROOT", 4 ) ||
             0 == strncmp( &(buf[dump_at]), "PRSM", 4 )
          ) {
             /* Dive into divable section. */
-            assert( fix_endian( vvr_form_p->vvr_sz ) < buf_sz );
+            assert( fix_endian_32( vvr_form_p->vvr_sz ) < buf_sz );
             dump_sect( &(buf[dump_at + 8]),
-               fix_endian( vvr_form_p->vvr_sz ), depth + 1 );
+               fix_endian_32( vvr_form_p->vvr_sz ), depth + 1 );
 
          } else if(
             0 == strncmp( &(buf[dump_at]), "POSN", 4 )
          ) {
             dump_posn( &(buf[dump_at + 8]),
-               fix_endian( vvr_form_p->vvr_sz ), depth + 1 );
+               fix_endian_32( vvr_form_p->vvr_sz ), depth + 1 );
          }
 
-         dump_at += fix_endian( vvr_form_p->vvr_sz ) + 8;
+         dump_at += fix_endian_32( vvr_form_p->vvr_sz ) + 8;
       }
    }
 }
@@ -105,7 +100,7 @@ int main( int argc, char* argv[] ) {
    printf( "form: %c%c%c%c, sz: %u\n", 
       vvr_form_p->form[0], vvr_form_p->form[1],
       vvr_form_p->form[2], vvr_form_p->form[3],
-      fix_endian( vvr_form_p->vvr_sz ) );
+      fix_endian_32( vvr_form_p->vvr_sz ) );
 
    dump_sect( &(vvr_buf[sizeof( struct IFF_FORM )]), vvr_sz, 1 );
 
