@@ -18,6 +18,17 @@ struct IFF_FORM {
    char vmdl[4];
 };
 
+struct VVR_FP16P {
+   int8_t integer;
+   uint8_t fraction;
+   uint16_t padding;
+} __attribute__((packed));
+
+struct VVR_COORD_2D {
+   struct VVR_FP16P x;
+   struct VVR_FP16P y;
+} __attribute__((packed));
+
 struct VVR_FP32 {
    uint16_t integer;
    uint16_t fraction;
@@ -29,20 +40,29 @@ struct VVR_COORD_3D {
    struct VVR_FP32 z;
 } __attribute__((packed));
 
-struct VVR_SECT_GENERIC {
+struct VVR_SECT_HEAD {
    char section[4];
    uint32_t sz;
+} __attribute__((packed));
+
+struct VVR_SECT_GENERIC {
+   struct VVR_SECT_HEAD head;
    uint8_t data[];
 } __attribute__((packed));
 
 struct VVR_SECT_POLY {
-   char section[4];
-   uint32_t sz;
+   struct VVR_SECT_HEAD head;
+   uint8_t u1[4];
+   uint16_t vsegs;
+   uint16_t vscale;
+   uint16_t u2;
+   uint16_t height;
+   uint32_t u3[5];
+   struct VVR_COORD_2D coords[];
 } __attribute__((packed));
 
 struct VVR_SECT_POSN {
-   char section[4];
-   uint32_t sz;
+   struct VVR_SECT_HEAD head;
    struct VVR_FP32 x;
    struct VVR_FP32 y;
    struct VVR_FP32 z;

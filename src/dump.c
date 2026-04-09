@@ -6,13 +6,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-void dump_posn( uint8_t* buf, size_t buf_sz, uint8_t verbose, uint8_t cols ) {
-   int i = 0,
-      j = 0;
-   int16_t* pos_dec_p = NULL;
-   int16_t* pos_frac_p = NULL;
-   struct VVR_SECT_POSN* posn = (struct VVR_SECT_POSN*)buf;
-
+void dump_posn( struct VVR_SECT_POSN* posn, uint8_t verbose, uint8_t cols ) {
    printf( "pos: X: %d.%d, Y: %d.%d, Z: %d.%d\n",
       vvr_fix_endian_16( posn->x.integer ), /* X.dec */
       vvr_fix_endian_16( posn->x.fraction ), /* X.frac */
@@ -26,7 +20,7 @@ void dump_posn( uint8_t* buf, size_t buf_sz, uint8_t verbose, uint8_t cols ) {
 
 /* === */
 
-void dump_raw( uint8_t* buf, size_t buf_sz, uint8_t verbose, uint8_t cols ) {
+void dump_bytes( uint8_t* buf, int buf_sz, uint8_t verbose, uint8_t cols ) {
    int i = 0;
 
    for( i = 1 ; buf_sz + 1 > i ; i++ ) {
@@ -42,21 +36,22 @@ void dump_raw( uint8_t* buf, size_t buf_sz, uint8_t verbose, uint8_t cols ) {
 
 /* === */
 
-void dump_poly( uint8_t* buf, size_t buf_sz, uint8_t verbose, uint8_t cols ) {
+void dump_poly( struct VVR_SECT_POLY* poly, uint8_t verbose, uint8_t cols ) {
    const char* shape_str = NULL,
       * shape_cub = "cube/pyramid",
       * shape_cyl = "cylinder",
       * shape_sph = "sphere",
       * shape_unk = "unknown";
-   uint16_t vsegments = vvr_fix_endian_16( *((uint16_t*)&(buf[4])) );
+   int seg_count = (vvr_fix_endian_32( poly->head.sz ) - 30) / 8;
+   int i = 0;
 
-   switch( buf_sz ) {
+   switch( poly->head.sz ) {
       case VVR_POLY_SZ_RECT:
          shape_str = shape_cub;
          break;
 
       case VVR_POLY_SZ_CIRCLE:
-         shape_str = vsegments > 1 ? shape_sph : shape_cyl;
+         shape_str = poly->vsegs > 1 ? shape_sph : shape_cyl;
          break;
 
       default:
@@ -64,8 +59,15 @@ void dump_poly( uint8_t* buf, size_t buf_sz, uint8_t verbose, uint8_t cols ) {
          break;
    }
 
-   printf( "=== found POLY (%s) ===\n", shape_str, vsegments );
-   dump_raw( buf, buf_sz, verbose, cols );
+   printf( "poly: %s (%d segs): ", shape_str, seg_count );
+   for( i = 0 ; seg_count > i ; i++ ) {
+      printf( "(%d) %d.%d, %d.%d; ", i,
+         poly->coords[i].x.integer,
+         poly->coords[i].x.fraction,
+         poly->coords[i].y.integer,
+         poly->coords[i].y.fraction );
+   }
+   printf( "\n" );
 }
 
 /* === */
@@ -82,7 +84,9 @@ int main( int argc, char* argv[] ) {
    uint8_t cols = 16;
    struct VVR_SECT_POSN* posn = NULL;
    uint8_t* next = NULL;
-   int cursor = 0;
+   int i_prev = 0, i = 0, j = 0;
+   struct VVR_SECT_GENERIC* prsm = NULL;
+   struct VVR_SECT_POLY* poly = NULL;
 
    while( -1 != (c = getopt( argc, argv, ":vc:" )) ) {
       switch( c ) {
@@ -125,11 +129,34 @@ int main( int argc, char* argv[] ) {
          vvr_fix_endian_32( vvr_form_p->vvr_sz ) );
    }
 
-   while( NULL != (next = next_sect(
-      "POSN", vvr_buf, vvr_sz, 1, &cursor
-   )) ) {
-      posn = (struct VVR_SECT_POSN*)next;
-      dump_posn( next, posn->sz, verbose, cols );
+   while( NULL != (next = next_sect( "PRSM", vvr_buf, vvr_sz, 1, &i )) ) {
+      prsm = (struct VVR_SECT_GENERIC*)&(vvr_buf[i]);
+      printf( "found PRSM @ 0x%x, diving...\n", i );
+
+      /* Dive into the PRSM section for POSN sections. */
+      j = i + sizeof( struct VVR_SECT_HEAD );
+      while( NULL != (next = next_sect( "POSN", vvr_buf, vvr_sz, 1, &j )) ) {
+         posn = (struct VVR_SECT_POSN*)next;
+         dump_posn( posn, verbose, cols );
+
+         /* Skip to section after POSN (size plus sz/sect fields). */
+         j += vvr_fix_endian_32( posn->head.sz ) +
+            sizeof( struct VVR_SECT_HEAD );
+      }
+
+      /* Dive into the PRSM section for POLY sections. */
+      j = i + sizeof( struct VVR_SECT_HEAD );
+      while( NULL != (next = next_sect( "POLY", vvr_buf, vvr_sz, 1, &j )) ) {
+         poly = (struct VVR_SECT_POLY*)next;
+         dump_poly( poly, verbose, cols );
+
+         /* Skip to section after POSN (size plus sz/sect fields). */
+         j += vvr_fix_endian_32( poly->head.sz ) +
+            sizeof( struct VVR_SECT_HEAD );
+      }
+      
+      /* Skip to section after PRSM (size plus sz/sect fields). */
+      i += vvr_fix_endian_32( prsm->head.sz ) + sizeof( struct VVR_SECT_HEAD );
    }
 
    return 0;
