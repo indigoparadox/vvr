@@ -1,9 +1,9 @@
 
 # vim: ft=make noexpandtab
 
-parse: parse.c
-	gcc -o parse parse.c
+dump: parse.c dump.c
+	gcc -o $@ $^
 
 clean:
-	rm -rf parse
+	rm -rf dump
    

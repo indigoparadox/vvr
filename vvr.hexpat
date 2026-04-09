@@ -5,28 +5,37 @@ import type.magic;
 struct Fixed_Point_32 {
     u16 integer;
     u16 fraction;
-} [[format_read( "print_fp" )]];
-
-struct Fixed_Point_16 {
-    u8 integer;
-    u8 fraction;
-} [[format_read( "print_fp" )]];
+} [[format_read( "print_fp" ), format_write( "read_fp" )]];
 
 struct Fixed_Point_16_Padded {
-    u8 integer;
+    s8 integer;
     u8 fraction;
     u16 pad;
-} [[format_read( "print_fp" )]];
+} [[format_read( "print_fp" ), format_write( "read_fp" )]];
 
 fn print_fp( auto v ) {
     return std::format( "{}.{}", v.integer, v.fraction );
+};
+
+fn read_fp( str v ) {
+    /* s16 str_sz = std::string::length( v );
+    s16 comma_pos = -1;
+    for( s16 i = 0, str_sz > i, i += 1 ) {
+        if( "," == std::string::at( v, i ) ) {
+            comma_pos = i;
+            break;
+        }
+    }
+    str str_int = std::string::substr( v, 0, comma_pos );
+    str str_frac = std::string::substr( v, comma_pos + 1, str_sz - (comma_pos + 1) ); */
+    return std::string::parse_float( v, 0 );
 };
 
 // Seems to be used by PRISM for vertices... needs study.
 struct Coord2D {
     Fixed_Point_16_Padded x;
     Fixed_Point_16_Padded y;
-} [[format_read( "print_coord2d" )]];
+} [[format_read( "print_coord2d" ), format_write( "print_coord2d" )]];
 
 fn print_coord2d( auto v ) {
     return std::format( "{}, {}", v.x, v.y );
