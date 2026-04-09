@@ -40,6 +40,13 @@ struct VVR_COORD_3D {
    struct VVR_FP32 z;
 } __attribute__((packed));
 
+struct VVR_COLOR {
+   uint8_t u1;
+   uint8_t r;
+   uint8_t g;
+   uint8_t b;
+} __attribute__((packed));
+
 struct VVR_SECT_HEAD {
    char section[4];
    uint32_t sz;
@@ -66,6 +73,12 @@ struct VVR_SECT_POSN {
    struct VVR_FP32 x;
    struct VVR_FP32 y;
    struct VVR_FP32 z;
+} __attribute__((packed));
+
+struct VVR_SECT_COLR {
+   struct VVR_SECT_HEAD head;
+   struct VVR_COLOR color1;
+   struct VVR_COLOR color2;
 } __attribute__((packed));
 
 struct VVR_PARSER {

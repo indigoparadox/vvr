@@ -72,6 +72,12 @@ void dump_poly( struct VVR_SECT_POLY* poly, uint8_t verbose, uint8_t cols ) {
 
 /* === */
 
+void dump_color( struct VVR_COLOR* color, uint8_t verbose, uint8_t cols ) {
+   printf( "r: 0x%02x, g: 0x%02x, b: 0x%02x\n", color->r, color->g, color->b );
+}
+
+/* === */
+
 int main( int argc, char* argv[] ) {
    FILE* vvr_file = NULL;
    uint8_t* vvr_buf = NULL;
@@ -87,6 +93,7 @@ int main( int argc, char* argv[] ) {
    int i_prev = 0, i = 0, j = 0;
    struct VVR_SECT_GENERIC* prsm = NULL;
    struct VVR_SECT_POLY* poly = NULL;
+   struct VVR_SECT_COLR* colr = NULL;
 
    while( -1 != (c = getopt( argc, argv, ":vc:" )) ) {
       switch( c ) {
@@ -132,6 +139,17 @@ int main( int argc, char* argv[] ) {
    while( NULL != (next = next_sect( "PRSM", vvr_buf, vvr_sz, 1, &i )) ) {
       prsm = (struct VVR_SECT_GENERIC*)&(vvr_buf[i]);
       printf( "found PRSM @ 0x%x, diving...\n", i );
+
+      /* Dive into the PRSM section for COLR sections. */
+      j = i + sizeof( struct VVR_SECT_HEAD );
+      while( NULL != (next = next_sect( "COLR", vvr_buf, vvr_sz, 1, &j )) ) {
+         colr = (struct VVR_SECT_COLR*)next;
+         dump_color( &(colr->color1), verbose, cols );
+
+         /* Skip to section after POSN (size plus sz/sect fields). */
+         j += vvr_fix_endian_32( colr->head.sz ) +
+            sizeof( struct VVR_SECT_HEAD );
+      }
 
       /* Dive into the PRSM section for POSN sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
