@@ -5,16 +5,27 @@ import type.magic;
 struct Fixed_Point_32 {
     u16 integer;
     u16 fraction;
-} [[format_read( "print_fp32" )]];
+} [[format_read( "print_fp" )]];
 
-fn print_fp32( auto v ) {
+struct Fixed_Point_16 {
+    u8 integer;
+    u8 fraction;
+} [[format_read( "print_fp" )]];
+
+struct Fixed_Point_16_Padded {
+    u8 integer;
+    u8 fraction;
+    u16 pad;
+} [[format_read( "print_fp" )]];
+
+fn print_fp( auto v ) {
     return std::format( "{}.{}", v.integer, v.fraction );
 };
 
 // Seems to be used by PRISM for vertices... needs study.
 struct Coord2D {
-    Fixed_Point_32 x;
-    Fixed_Point_32 y;
+    Fixed_Point_16_Padded x;
+    Fixed_Point_16_Padded y;
 } [[format_read( "print_coord2d" )]];
 
 fn print_coord2d( auto v ) {
@@ -59,67 +70,102 @@ struct IFF_Chunk_PREF_Dispatch {
 using IFF_Chunk_PRSM_Dispatch;
 
 struct IFF_Chunk_POSN {
+    u32 size;
     Coord3D position;
     Coord3D rotation;
     Coord3D un1; // ???
     Coord3D zoom;
 };
 
+struct IFF_Chunk_COLR {
+    u32 size;
+    VVRColor color1;
+    VVRColor color2;
+} [[hex::inline_visualize("color", color1.r, color1.g, color1.b, 255)]];
+
+struct IFF_Chunk_POLY {
+    u32 size;
+    auto start_offset = $;
+    u8 u1a; // ???
+    u8 u1b; // ???
+    u8 u1c; // ???
+    u8 u1d; // ???
+    u16 vertical_segments;
+    u16 vertical_scale; // ???
+    u16 u2; // ???
+    u16 height; // ???
+    u32 u3;
+    u32 u4;
+    u32 u5;
+    u32 u6;
+    u32 u7;
+    Coord2D coords[while( $ < start_offset + size )];
+};
+
 struct IFF_Chunk_PGRP_Dispatch {
     char id[4];
-    u32 size;
     
-    // Parse a PRSM (polygon in the scene) chunk.
+    // Parse a PGRP (group of polygons in the scene) chunk.
 
     if( id == "PRSM" ) {
         // The PRSM chunk contains a bunch of chunks inside of it.
+        u32 size;
         auto start_offset = $;
         IFF_Chunk_PRSM_Dispatch chunks[while( $ < start_offset + size )][[inline]];
+
     } else {
         match (id) {
             ("POSN"): IFF_Chunk_POSN [[inline]];
-            (_): u8 raw[size];
+            ("POLY"): IFF_Chunk_POLY [[inline]];
+            ("COLR"): IFF_Chunk_COLR [[inline]];
+            (_): {
+                u32 size;
+                u8 raw[size];
+            }
         }
     }
 } [[ name( id )]];
 
 struct IFF_Chunk_PRSM_Dispatch {
     char id[4];
-    u32 size;
     
     // Parse a PRSM (polygon in the scene) chunk.
 
     match (id) {
-        ("POLY"): {
-            auto start_offset = $;
-            Coord2D vertices[while( $ < start_offset + size )];
-        }
         ("POSN"): IFF_Chunk_POSN [[inline]];
-        ("COLR"): {
-            VVRColor color1;
-            VVRColor color2;
+        ("POLY"): IFF_Chunk_POLY;
+        ("COLR"): IFF_Chunk_COLR [[inline]];
+        (_): {
+            u32 size;
+            u8 raw[size];
         }
-        (_): u8 raw[size];
     }
 } [[ name( id )]];
 
 struct IFF_Chunk_ROOT_Dispatch {
     char id[4];
-    u32 size;
     
     // Parse 3D scene data children off of the ROOT chunk.
 
     if( id == "PRSM" ) {
         // The PRSM chunk contains a bunch of chunks inside of it.
+        u32 size;
         auto start_offset = $;
         IFF_Chunk_PRSM_Dispatch chunks[while( $ < start_offset + size )][[inline]];
+
     } else if( id == "PGRP" ) {
         // The PRSM chunk contains a bunch of chunks inside of it.
+        u32 size;
         auto start_offset = $;
         IFF_Chunk_PGRP_Dispatch chunks[while( $ < start_offset + size )][[inline]];
+
     } else {
         match (id) {
-            (_): u8 raw[size];
+            ("COLR"): IFF_Chunk_COLR [[inline]];
+            (_): {
+                u32 size;
+                u8 raw[size];
+            }
         }
     }
 } [[ name( id )]];
