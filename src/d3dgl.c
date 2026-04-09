@@ -11,6 +11,9 @@
 #define OGL_SCREEN_W 1024
 #define OGL_SCREEN_H 768
 
+uint8_t* g_vvr_buf = NULL;
+size_t g_vvr_sz = 0;
+
 int ogl_opengl_setup() {
    int retval = 0;
    float aspect_ratio = 0;
@@ -39,12 +42,86 @@ int ogl_opengl_setup() {
 /* === */
 
 void ogl_opengl_frame() {
+   uint8_t* next = NULL;
+   int i = 0, j = 0, k = 0, seg_count = 0;
+   struct VVR_SECT_POSN* posn = NULL;
+   struct VVR_SECT_GENERIC* prsm = NULL;
+   struct VVR_SECT_POLY* poly = NULL;
+   struct VVR_SECT_COLR* colr = NULL;
+
    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
    glPushMatrix();
 
    glTranslatef( 0, 0, -3.0f );
 
-	/* TODO: Redraw loaded objects. */
+	/* Redraw loaded objects. */
+   while( NULL != (next = next_sect( "PRSM", g_vvr_buf, g_vvr_sz, 1, &i )) ) {
+      prsm = (struct VVR_SECT_GENERIC*)&(g_vvr_buf[i]);
+      printf( "found PRSM @ 0x%x, diving...\n", i );
+
+      glPushMatrix();
+
+      /* Dive into the PRSM section for COLR sections. */
+      j = i + sizeof( struct VVR_SECT_HEAD );
+      while(
+         NULL != (next = next_sect( "COLR", g_vvr_buf, g_vvr_sz, 1, &j ))
+      ) {
+         colr = (struct VVR_SECT_COLR*)next;
+         /* TODO */
+
+         glColor3i( colr->color1.r, colr->color1.g, colr->color2.b );
+
+         /* Skip to section after POSN (size plus sz/sect fields). */
+         j += vvr_fix_endian_32( colr->head.sz ) +
+            sizeof( struct VVR_SECT_HEAD );
+      }
+
+      /* Dive into the PRSM section for POSN sections. */
+      j = i + sizeof( struct VVR_SECT_HEAD );
+      while(
+         NULL != (next = next_sect( "POSN", g_vvr_buf, g_vvr_sz, 1, &j ))
+      ) {
+         posn = (struct VVR_SECT_POSN*)next;
+         /* TODO */
+
+         /* Skip to section after POSN (size plus sz/sect fields). */
+         j += vvr_fix_endian_32( posn->head.sz ) +
+            sizeof( struct VVR_SECT_HEAD );
+      }
+
+      /* Dive into the PRSM section for POLY sections. */
+      j = i + sizeof( struct VVR_SECT_HEAD );
+      while(
+         NULL != (next = next_sect( "POLY", g_vvr_buf, g_vvr_sz, 1, &j ))
+      ) {
+         poly = (struct VVR_SECT_POLY*)next;
+         /* TODO */
+         seg_count = (vvr_fix_endian_32( poly->head.sz ) - 30) / 8;
+
+         glBegin( GL_QUADS );
+
+         for( k = 0 ; seg_count > k ; k++ ) {
+            printf( "v%d/%d: %d, %d\n", k, seg_count,
+               poly->coords[k].x.integer,
+               poly->coords[k].y.integer );
+            glVertex3f(
+               poly->coords[k].x.integer,
+               1,
+               poly->coords[k].y.integer );
+         }
+
+         glEnd();
+
+         /* Skip to section after POSN (size plus sz/sect fields). */
+         j += vvr_fix_endian_32( poly->head.sz ) +
+            sizeof( struct VVR_SECT_HEAD );
+      }
+
+      glPopMatrix();
+      
+      /* Skip to section after PRSM (size plus sz/sect fields). */
+      i += vvr_fix_endian_32( prsm->head.sz ) + sizeof( struct VVR_SECT_HEAD );
+   }
 
    glPopMatrix();
    glFlush();
@@ -54,23 +131,13 @@ void ogl_opengl_frame() {
 
 /* === */
 
-int ogl_setup_vvr( uint8_t* buf, size_t sz ) {
-   int retval = 0;
-
-   return retval;
-}
-
-/* === */
-
 int main( int argc, char* argv[] ) {
 	int retval = 0;
    uint8_t verbose = 0;
    char c = 0;
    FILE* vvr_file = NULL;
-   uint8_t* vvr_buf = NULL;
    char* vvr_path = NULL;
-   size_t vvr_sz = 0,
-      vvr_read = 0;
+   size_t vvr_read = 0;
 
    /* Setup OpenGL. */
 
@@ -105,19 +172,16 @@ int main( int argc, char* argv[] ) {
 
    vvr_file = fopen( vvr_path, "rb" );
    fseek( vvr_file, 0, SEEK_END );
-   vvr_sz = ftell( vvr_file );
+   g_vvr_sz = ftell( vvr_file );
    fseek( vvr_file, 0, SEEK_SET );
 
-   vvr_buf = calloc( vvr_sz, 1 );
-   assert( NULL != vvr_buf );
+   g_vvr_buf = calloc( g_vvr_sz, 1 );
+   assert( NULL != g_vvr_buf );
 
-   vvr_read = fread( vvr_buf, 1, vvr_sz, vvr_file );
-   assert( vvr_read == vvr_sz );
+   vvr_read = fread( g_vvr_buf, 1, g_vvr_sz, vvr_file );
+   assert( vvr_read == g_vvr_sz );
 
    fclose( vvr_file );
-
-   retval = ogl_setup_vvr( vvr_buf, vvr_sz );
-   assert( 0 == retval );
 
    /* Start! */
 

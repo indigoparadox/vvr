@@ -88,9 +88,9 @@ int main( int argc, char* argv[] ) {
    char c = 0;
    char* vvr_path = NULL;
    uint8_t cols = 16;
-   struct VVR_SECT_POSN* posn = NULL;
    uint8_t* next = NULL;
-   int i_prev = 0, i = 0, j = 0;
+   int i = 0, j = 0;
+   struct VVR_SECT_POSN* posn = NULL;
    struct VVR_SECT_GENERIC* prsm = NULL;
    struct VVR_SECT_POLY* poly = NULL;
    struct VVR_SECT_COLR* colr = NULL;
