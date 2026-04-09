@@ -41,9 +41,23 @@ int ogl_opengl_setup() {
 
 /* === */
 
+void ogl_cube_face( struct VVR_SECT_POLY* poly, int seg_count ) {
+   int i = 0;
+   float x, y, z;
+
+   for( i = 0 ; seg_count > i ; i++ ) {
+      y = poly->coords[i].x.integer;
+      x = poly->coords[i].y.integer;
+      z = 1.0f;
+      glVertex3f( x, y, z );
+   }
+}
+
+/* === */
+
 void ogl_opengl_frame() {
    uint8_t* next = NULL;
-   int i = 0, j = 0, k = 0, seg_count = 0;
+   int i = 0, j = 0, seg_count = 0;
    struct VVR_SECT_POSN* posn = NULL;
    struct VVR_SECT_GENERIC* prsm = NULL;
    struct VVR_SECT_POLY* poly = NULL;
@@ -69,7 +83,7 @@ void ogl_opengl_frame() {
          colr = (struct VVR_SECT_COLR*)next;
          /* TODO */
 
-         glColor3i( colr->color1.r, colr->color1.g, colr->color2.b );
+         /* glColor3i( colr->color1.r, colr->color1.g, colr->color2.b ); */
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( colr->head.sz ) +
@@ -100,15 +114,16 @@ void ogl_opengl_frame() {
 
          glBegin( GL_QUADS );
 
-         for( k = 0 ; seg_count > k ; k++ ) {
-            printf( "v%d/%d: %d, %d\n", k, seg_count,
-               poly->coords[k].x.integer,
-               poly->coords[k].y.integer );
-            glVertex3f(
-               poly->coords[k].x.integer,
-               1,
-               poly->coords[k].y.integer );
-         }
+         glColor3f( 1.0f, 1.0f, 0 );
+
+         ogl_cube_face( poly, seg_count );
+         glRotatef( 90.0f, 0, 1.0f, 0 );
+         ogl_cube_face( poly, seg_count );
+         glRotatef( 90.0f, 0, 1.0f, 0 );
+         ogl_cube_face( poly, seg_count );
+         glRotatef( 90.0f, 0, 1.0f, 0 );
+         ogl_cube_face( poly, seg_count );
+         glRotatef( 90.0f, 0, 1.0f, 0 );
 
          glEnd();
 
@@ -124,7 +139,6 @@ void ogl_opengl_frame() {
    }
 
    glPopMatrix();
-   glFlush();
 
    glutSwapBuffers();
 }
