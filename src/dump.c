@@ -128,6 +128,8 @@ int main( int argc, char* argv[] ) {
    vvr_read = fread( vvr_buf, 1, vvr_sz, vvr_file );
    assert( vvr_read == vvr_sz );
 
+   fclose( vvr_file );
+
    vvr_form_p = (struct IFF_FORM*)vvr_buf;
    if( verbose ) {
       printf( "form: %c%c%c%c, sz: %u\n", 
