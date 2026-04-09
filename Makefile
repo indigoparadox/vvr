@@ -1,9 +1,13 @@
 
 # vim: ft=make noexpandtab
 
-dump: parse.c dump.c
+dump: obj/parse.o obj/dump.o
 	gcc -o $@ $^
 
+obj/%.o: src/%.c
+	mkdir -p $(dir $@)
+	gcc -c -o $@ $<
+
 clean:
-	rm -rf dump
+	rm -rf dump obj
    
