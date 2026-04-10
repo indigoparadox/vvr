@@ -41,16 +41,21 @@ int ogl_opengl_setup() {
 
 /* === */
 
-void ogl_cube_face( struct VVR_SECT_POLY* poly, int seg_count ) {
+void ogl_face( struct VVR_SECT_POLY* poly, int seg_count ) {
    int i = 0;
    float x, y, z;
 
+   glBegin( GL_QUADS );
+
    for( i = 0 ; seg_count > i ; i++ ) {
-      y = poly->coords[i].x.integer;
-      x = poly->coords[i].y.integer;
+      y = poly->coords[i].x >> 12;
+      x = poly->coords[i].y >> 12;
       z = 1.0f;
+      printf( "%f, %f, %f\n", x, y, z );
       glVertex3f( x, y, z );
    }
+
+   glEnd();
 }
 
 /* === */
@@ -67,6 +72,8 @@ void ogl_opengl_frame() {
    glPushMatrix();
 
    glTranslatef( 0, 0, -3.0f );
+
+   printf( "drawing...\n" );
 
 	/* Redraw loaded objects. */
    while( NULL != (next = next_sect( "PRSM", g_vvr_buf, g_vvr_sz, 1, &i )) ) {
@@ -110,22 +117,8 @@ void ogl_opengl_frame() {
       ) {
          poly = (struct VVR_SECT_POLY*)next;
          /* TODO */
-         seg_count = (vvr_fix_endian_32( poly->head.sz ) - 30) / 8;
 
-         glBegin( GL_QUADS );
-
-         glColor3f( 1.0f, 1.0f, 0 );
-
-         ogl_cube_face( poly, seg_count );
-         glRotatef( 90.0f, 0, 1.0f, 0 );
-         ogl_cube_face( poly, seg_count );
-         glRotatef( 90.0f, 0, 1.0f, 0 );
-         ogl_cube_face( poly, seg_count );
-         glRotatef( 90.0f, 0, 1.0f, 0 );
-         ogl_cube_face( poly, seg_count );
-         glRotatef( 90.0f, 0, 1.0f, 0 );
-
-         glEnd();
+         ogl_face( poly, vvr_fix_endian_32( poly->coords_ct ) );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( poly->head.sz ) +

@@ -6,7 +6,11 @@
 #include <assert.h>
 #include <stdlib.h>
 
-void dump_posn( struct VVR_SECT_POSN* posn, uint8_t verbose, uint8_t cols ) {
+#define DUMP_FLAG_VERBOSE  0x01
+#define DUMP_FLAG_CHEADER  0x02
+#define DUMP_FLAG_HEX      0x04
+
+void dump_posn( struct VVR_SECT_POSN* posn, uint8_t flags, uint8_t cols ) {
    printf( "pos: X: %d.%d, Y: %d.%d, Z: %d.%d\n",
       vvr_fix_endian_16( posn->x.integer ), /* X.dec */
       vvr_fix_endian_16( posn->x.fraction ), /* X.frac */
@@ -20,7 +24,7 @@ void dump_posn( struct VVR_SECT_POSN* posn, uint8_t verbose, uint8_t cols ) {
 
 /* === */
 
-void dump_bytes( uint8_t* buf, int buf_sz, uint8_t verbose, uint8_t cols ) {
+void dump_bytes( uint8_t* buf, int buf_sz, uint8_t flags, uint8_t cols ) {
    int i = 0;
 
    for( i = 1 ; buf_sz + 1 > i ; i++ ) {
@@ -36,13 +40,12 @@ void dump_bytes( uint8_t* buf, int buf_sz, uint8_t verbose, uint8_t cols ) {
 
 /* === */
 
-void dump_poly( struct VVR_SECT_POLY* poly, uint8_t verbose, uint8_t cols ) {
+void dump_poly( struct VVR_SECT_POLY* poly, uint8_t flags, uint8_t cols ) {
    const char* shape_str = NULL,
       * shape_cub = "cube/pyramid",
       * shape_cyl = "cylinder",
       * shape_sph = "sphere",
       * shape_unk = "unknown";
-   int seg_count = (vvr_fix_endian_32( poly->head.sz ) - 30) / 8;
    int i = 0;
 
    switch( poly->head.sz ) {
@@ -59,20 +62,42 @@ void dump_poly( struct VVR_SECT_POLY* poly, uint8_t verbose, uint8_t cols ) {
          break;
    }
 
-   printf( "poly: %s (%d segs): ", shape_str, seg_count );
-   for( i = 0 ; seg_count > i ; i++ ) {
-      printf( "(%d) %d.%d, %d.%d; ", i,
-         poly->coords[i].x.integer,
-         poly->coords[i].x.fraction,
-         poly->coords[i].y.integer,
-         poly->coords[i].y.fraction );
+   if( DUMP_FLAG_CHEADER == (DUMP_FLAG_CHEADER & flags) ) {
+      printf( "float %s_x[%d] = {\n", shape_str,
+         vvr_fix_endian_32( poly->coords_ct ) );
+      for( i = 0 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
+         printf( "%d,\n", poly->coords[i].x );
+      }
+      printf( "};\n\n" );
+      printf( "float %s_y[%d] = {\n", shape_str,
+         vvr_fix_endian_32( poly->coords_ct ) );
+      for( i = 0 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
+         printf( "%d,\n", poly->coords[i].y );
+      }
+      printf( "};\n" );
+   } else {
+      printf( "poly: %s (%d segs): ", shape_str,
+         vvr_fix_endian_32( poly->coords_ct ) );
+      for( i = 0 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
+         if( DUMP_FLAG_HEX == (DUMP_FLAG_HEX & flags) ) {
+            printf(
+               " (%2d) 0x%08x, 0x%08x\n", i,
+               *(uint32_t*)&(poly->coords[i].x),
+               *(uint32_t*)&(poly->coords[i].y) );
+         } else {
+            printf(
+               " (%d) %d, %d\n", i,
+               poly->coords[i].x,
+               poly->coords[i].y );
+         }
+      }
+      printf( "\n" );
    }
-   printf( "\n" );
 }
 
 /* === */
 
-void dump_color( struct VVR_COLOR* color, uint8_t verbose, uint8_t cols ) {
+void dump_color( struct VVR_COLOR* color, uint8_t flags, uint8_t cols ) {
    printf( "r: 0x%02x, g: 0x%02x, b: 0x%02x\n", color->r, color->g, color->b );
 }
 
@@ -84,7 +109,7 @@ int main( int argc, char* argv[] ) {
    size_t vvr_sz = 0,
       vvr_read = 0;
    struct IFF_FORM* vvr_form_p;
-   uint8_t verbose = 0;
+   uint8_t flags = 0;
    char c = 0;
    char* vvr_path = NULL;
    uint8_t cols = 16;
@@ -95,10 +120,18 @@ int main( int argc, char* argv[] ) {
    struct VVR_SECT_POLY* poly = NULL;
    struct VVR_SECT_COLR* colr = NULL;
 
-   while( -1 != (c = getopt( argc, argv, ":vc:" )) ) {
+   while( -1 != (c = getopt( argc, argv, ":vrxc:" )) ) {
       switch( c ) {
          case 'v':
-            verbose = 1;
+            flags |= DUMP_FLAG_VERBOSE;
+            break;
+
+         case 'r':
+            flags |= DUMP_FLAG_CHEADER;
+            break;
+
+         case 'x':
+            flags |= DUMP_FLAG_HEX;
             break;
 
          case 'c':
@@ -131,7 +164,7 @@ int main( int argc, char* argv[] ) {
    fclose( vvr_file );
 
    vvr_form_p = (struct IFF_FORM*)vvr_buf;
-   if( verbose ) {
+   if( DUMP_FLAG_VERBOSE == (DUMP_FLAG_VERBOSE & flags) ) {
       printf( "form: %c%c%c%c, sz: %u\n", 
          vvr_form_p->form[0], vvr_form_p->form[1],
          vvr_form_p->form[2], vvr_form_p->form[3],
@@ -146,7 +179,7 @@ int main( int argc, char* argv[] ) {
       j = i + sizeof( struct VVR_SECT_HEAD );
       while( NULL != (next = next_sect( "COLR", vvr_buf, vvr_sz, 1, &j )) ) {
          colr = (struct VVR_SECT_COLR*)next;
-         dump_color( &(colr->color1), verbose, cols );
+         dump_color( &(colr->color1), flags, cols );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( colr->head.sz ) +
@@ -157,7 +190,7 @@ int main( int argc, char* argv[] ) {
       j = i + sizeof( struct VVR_SECT_HEAD );
       while( NULL != (next = next_sect( "POSN", vvr_buf, vvr_sz, 1, &j )) ) {
          posn = (struct VVR_SECT_POSN*)next;
-         dump_posn( posn, verbose, cols );
+         dump_posn( posn, flags, cols );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( posn->head.sz ) +
@@ -168,7 +201,7 @@ int main( int argc, char* argv[] ) {
       j = i + sizeof( struct VVR_SECT_HEAD );
       while( NULL != (next = next_sect( "POLY", vvr_buf, vvr_sz, 1, &j )) ) {
          poly = (struct VVR_SECT_POLY*)next;
-         dump_poly( poly, verbose, cols );
+         dump_poly( poly, flags, cols );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( poly->head.sz ) +
