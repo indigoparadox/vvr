@@ -103,7 +103,7 @@ struct IFF_Chunk_POLY {
     u32 u4;
     u32 u5;
     u32 u6;
-    u32 u7;
+    u32 num_coords;
     Coord2D coords[while( $ < start_offset + size )];
 };
 
