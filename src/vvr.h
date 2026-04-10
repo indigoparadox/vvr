@@ -1,6 +1,6 @@
 
-#ifndef PARSE_H
-#define PARSE_H
+#ifndef VVR_H
+#define VVR_H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -85,5 +85,5 @@ struct VVR_PARSER {
 uint8_t* next_sect(
    const char* sect, uint8_t* buf, size_t buf_sz, int depth, int* cursor );
 
-#endif /* PARSE_H */
+#endif /* VVR_H */
 

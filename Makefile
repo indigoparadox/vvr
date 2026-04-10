@@ -5,10 +5,10 @@ all: dump d3dgl
 
 d3dgl: CFLAGS := $(shell pkg-config opengl glut --cflags)
 
-dump: obj/parse.o obj/dump.o
+dump: obj/vvr.o obj/dump.o
 	gcc -o $@ $^
 
-d3dgl: obj/parse.o obj/d3dgl.o
+d3dgl: obj/vvr.o obj/d3dgl.o
 	gcc -o $@ $^ $(shell pkg-config opengl glut --libs)
 
 obj/%.o: src/%.c
