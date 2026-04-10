@@ -20,7 +20,7 @@ def main():
     logger = logging.getLogger( 'main' )
 
     with open( args.vvr_path, 'rb' ) as vvr_file:
-        vvr.parse_file( vvr_file )
+        print( vvr.parse_file( vvr_file ) )
 
 if '__main__' == __name__:
     main()
