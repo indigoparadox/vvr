@@ -55,7 +55,7 @@ int ogl_opengl_setup() {
 
 /* === */
 
-void ogl_face_seg(
+void ogl_draw_face_seg(
    float x_outside1, float y_outside1,
    float x_outside2, float y_outside2,
    float x_inside1, float y_inside1,
@@ -71,14 +71,24 @@ void ogl_face_seg(
       x_outside1, y_bottom, y_outside1 );
    glVertex3f( /* Outer Right */
       x_outside2, y_bottom, y_outside2 );
-   glVertex3f( /* Center */
+   glVertex3f( /* Center Left */
       x_inside1, y_top, y_inside1 );
+
+   if( x_inside1 != x_inside2 || y_inside1 != y_inside2 ) {
+      glVertex3f( /* Center Right */
+         x_inside2, y_top, y_inside2 );
+      glVertex3f( /* Center Left */
+         x_inside1, y_top, y_inside1 );
+      glVertex3f( /* Outer Right */
+         x_outside2, y_bottom, y_outside2 );
+   }
+
    glEnd();
 }
 
 /* === */
 
-void ogl_top(
+void ogl_draw_top(
    struct VVR_SECT_POLY* poly, float height, int layer, float* color
 ) {
    int i = 0, cx = 0, cy = 0, lx = 0, ly = 0, hx = 0, hy = 0;
@@ -101,13 +111,7 @@ void ogl_top(
    printf( "drawing top...\n" );
 #endif /* DEBUG */
 
-#define hxlx_compare( xy ) \
-   if( vvr_fix_endian_16( poly->coords[i].xy ) > h ## xy ) { \
-      h ## xy = vvr_fix_endian_16( poly->coords[i].xy ); \
-   } else if( vvr_fix_endian_16( poly->coords[i].xy ) < l ## xy ) { \
-      l ## xy = vvr_fix_endian_16( poly->coords[i].xy ); \
-   }
-
+   /* Find outermost coords in of the poly. */
    for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
 #ifdef DEBUG
       printf( "%d: x: %d, y: %d\n", i,
@@ -115,8 +119,19 @@ void ogl_top(
          vvr_fix_endian_16( poly->coords[i].y ) );
 #endif /* DEBUG */
 
-      hxlx_compare( x );
-      hxlx_compare( y );
+      /* Find highest/lowest X. */
+      if( vvr_fix_endian_16( poly->coords[i].x ) > hx ) {
+         hx = vvr_fix_endian_16( poly->coords[i].x );
+      } else if( vvr_fix_endian_16( poly->coords[i].x ) < lx ) {
+         lx = vvr_fix_endian_16( poly->coords[i].x );
+      }
+
+      /* Find highest/lowest Y. */
+      if( vvr_fix_endian_16( poly->coords[i].y ) > hy ) {
+         hy = vvr_fix_endian_16( poly->coords[i].y );
+      } else if( vvr_fix_endian_16( poly->coords[i].y ) < ly ) {
+         ly = vvr_fix_endian_16( poly->coords[i].y );
+      }
    }
 
 #ifdef DEBUG
@@ -127,7 +142,6 @@ void ogl_top(
    assert( hy > ly );
 
    /* Figure out center point. */
-
    cx = (0 > lx ? (hx + lx) : (hx - lx)) / 2;
    cy = (0 > ly ? (hy + ly) : (hy - ly)) / 2;
 #ifdef DEBUG
@@ -135,9 +149,8 @@ void ogl_top(
 #endif /* DEBUG */
 
    /* Draw top faces. */
-
    for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
-      ogl_face_seg( 
+      ogl_draw_face_seg( 
          vvr_fix_endian_16( poly->coords[i - 1].x ),
          vvr_fix_endian_16( poly->coords[i - 1].y ),
          vvr_fix_endian_16( poly->coords[i].x ),
@@ -146,7 +159,7 @@ void ogl_top(
    }
 
    /* Draw final top face. */
-   ogl_face_seg( 
+   ogl_draw_face_seg( 
       vvr_fix_endian_16( poly->coords[i - 1].x ),
       vvr_fix_endian_16( poly->coords[i - 1].y ),
       vvr_fix_endian_16( poly->coords[0].x ),
@@ -156,42 +169,41 @@ void ogl_top(
 
 /* === */
 
-void ogl_face(
-   struct VVR_SECT_POLY* poly, int i, int j, float height, float* color
-) {
-   glBegin( GL_TRIANGLES );
-   glColor4fv( color );
-   glNormal3f( 1.0f, 0, 0 );
+void ogl_draw_poly( struct VVR_SECT_POLY* poly, float* color ) {
+   int i = 0;
 
-   /* Lower Triangle */
-   glVertex3f( /* Left Low */
-      vvr_fix_endian_16( poly->coords[i].x ),
-      0,
-      vvr_fix_endian_16( poly->coords[i].y ) );
-   glVertex3f( /* Right Low */
-      vvr_fix_endian_16( poly->coords[j].x ),
-      0,
-      vvr_fix_endian_16( poly->coords[j].y ) );
-   glVertex3f( /* Right High */
-      vvr_fix_endian_16( poly->coords[j].x ),
-      height,
-      vvr_fix_endian_16( poly->coords[j].y ) );
+   /* Iterate around each side. */
+   for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
+      if( VVR_POLYPROF_SOLID == poly->vprofile ) {
+         /* Solid shape gets vertical walls. */
+         ogl_draw_face_seg( 
+            vvr_fix_endian_16( poly->coords[i - 1].x ),
+            vvr_fix_endian_16( poly->coords[i - 1].y ),
+            vvr_fix_endian_16( poly->coords[i].x ),
+            vvr_fix_endian_16( poly->coords[i].y ),
+            vvr_fix_endian_16( poly->coords[i - 1].x ),
+            vvr_fix_endian_16( poly->coords[i - 1].y ),
+            vvr_fix_endian_16( poly->coords[i].x ),
+            vvr_fix_endian_16( poly->coords[i].y ),
+            0, STATIC_HEIGHT, color );
+      }
+   }
+   if( VVR_POLYPROF_SOLID == poly->vprofile ) {
+      /* Solid shape gets one last vertical wall. */
+      ogl_draw_face_seg( 
+         vvr_fix_endian_16( poly->coords[i - 1].x ),
+         vvr_fix_endian_16( poly->coords[i - 1].y ),
+         vvr_fix_endian_16( poly->coords[0].x ), /* Wrap around to the */
+         vvr_fix_endian_16( poly->coords[0].y ), /* first coord! */
+         vvr_fix_endian_16( poly->coords[i - 1].x ),
+         vvr_fix_endian_16( poly->coords[i - 1].y ),
+         vvr_fix_endian_16( poly->coords[0].x ),
+         vvr_fix_endian_16( poly->coords[0].y ),
+         0, STATIC_HEIGHT, color );
+   }
 
-   /* Upper Triangle */
-   glVertex3f( /* Right High */
-      vvr_fix_endian_16( poly->coords[j].x ),
-      height,
-      vvr_fix_endian_16( poly->coords[j].y ) );
-   glVertex3f( /* Left High */
-      vvr_fix_endian_16( poly->coords[i].x ),
-      height,
-      vvr_fix_endian_16( poly->coords[i].y ) );
-   glVertex3f( /* Left Low */
-      vvr_fix_endian_16( poly->coords[i].x ),
-      0,
-      vvr_fix_endian_16( poly->coords[i].y ) );
-   glEnd();
-
+   /* Draw top (flat or angled segments that converge in the center. */
+   ogl_draw_top( poly, STATIC_HEIGHT, 0, color );
 }
 
 /* === */
@@ -257,17 +269,9 @@ void ogl_opengl_frame() {
          NULL != (next = next_sect( "POLY", g_vvr_buf, g_vvr_sz, 1, &j ))
       ) {
          poly = (struct VVR_SECT_POLY*)next;
-         /* TODO */
 
-         for( k = 1 ; vvr_fix_endian_32( poly->coords_ct ) > k ; k++ ) {
-            if( VVR_POLYPROF_SOLID == poly->vprofile ) {
-               ogl_face( poly, k - 1, k, STATIC_HEIGHT, color );
-            }
-         }
-         if( VVR_POLYPROF_SOLID == poly->vprofile ) {
-            ogl_face( poly, k - 1, 0, STATIC_HEIGHT, color );
-         }
-         ogl_top( poly, STATIC_HEIGHT, 0, color );
+         /* Draw the geometry into vertices. */
+         ogl_draw_poly( poly, color );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( poly->head.sz ) +
