@@ -13,20 +13,38 @@ def render_vvr( **kwargs ):
 
     screen = pygame.display.set_mode( (800, 600) )
     
-    offset = 300
+    offset = 100
 
     while running:
         
         for prsm in vvr_parms[1]['ROOT'][0]['PRSM']:
-            r = 255
-            g = 10
-            b = 10
+            color = (prsm['COLR'][0][1],
+                prsm['COLR'][0][2],
+                prsm['COLR'][0][3])
+
+            posn_x = int( prsm['POSN'][0][0] )
+            posn_y = int( prsm['POSN'][0][1] )
+
+            last_coord = None
             for coord in prsm['POLY'][0]['coords']:
-                screen.set_at(
-                    (coord[0] + offset, coord[2] + offset),
-                    (r, g, b) )
-                g += 10
-                b += 10
+                #screen.set_at(
+                #    (coord[0] + offset + posn_x,
+                #     coord[2] + offset + posn_y),
+                #    color )
+                if last_coord:
+                    pygame.draw.line( screen, color,
+                        (last_coord[0] + offset + posn_x,
+                        last_coord[2] + offset + posn_y),
+                        (coord[0] + offset + posn_x,
+                        coord[2] + offset + posn_y) )
+                last_coord = coord
+
+            # Link the end back up with the beginning.
+            pygame.draw.line( screen, color,
+                (last_coord[0] + offset + posn_x,
+                last_coord[2] + offset + posn_y),
+                (prsm['POLY'][0]['coords'][0][0] + offset + posn_x,
+                 prsm['POLY'][0]['coords'][0][2] + offset + posn_y) )
 
         for event in pygame.event.get():
             if pygame.QUIT == event.type:
