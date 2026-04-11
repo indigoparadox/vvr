@@ -2,14 +2,22 @@
 import argparse
 import logging
 
-from . import vvr
+from . import render, dump
 
 def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument( '-v', '--verbose', action='store_true' )
 
-    parser.add_argument( 'vvr_path' )
+    subparsers = parser.add_subparsers()
+
+    parser_dump = subparsers.add_parser( 'dump' )
+    parser_dump.add_argument( 'vvr_path' )
+    parser_dump.set_defaults( func=dump.dump_vvr )
+
+    parser_render = subparsers.add_parser( 'render' )
+    parser_render.add_argument( 'vvr_path' )
+    parser_render.set_defaults( func=render.render_vvr )
 
     args = parser.parse_args()
 
@@ -19,8 +27,8 @@ def main():
     logging.basicConfig( level=level )
     logger = logging.getLogger( 'main' )
 
-    with open( args.vvr_path, 'rb' ) as vvr_file:
-        print( vvr.parse_file( vvr_file ) )
+    args_dict = vars( args )
+    args.func( **args_dict )
 
 if '__main__' == __name__:
     main()

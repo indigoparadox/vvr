@@ -88,6 +88,21 @@ struct IFF_Chunk_COLR {
     VVRColor color2;
 } [[hex::inline_visualize("color", color1.r, color1.g, color1.b, 255)]];
 
+using IFF_Chunk_POLY;
+fn plot_poly_coords( IFF_Chunk_POLY p, u32 xy ) {
+    float xy_out[p.num_coords];
+    
+    for( s16 i = 0, p.num_coords > i, i += 1 ) {
+        if( 0 == xy ) {
+            xy_out[i] = float( p.coords[i].x );
+        } else {
+            xy_out[i] = float( p.coords[i].y );
+        }
+    }
+    
+    return xy_out;
+};
+
 struct IFF_Chunk_POLY {
     u32 size;
     auto start_offset = $;
@@ -105,7 +120,7 @@ struct IFF_Chunk_POLY {
     u32 u6;
     u32 num_coords;
     Coord2D coords[while( $ < start_offset + size )];
-};
+} [[hex::visualize( "scatter_plot", plot_poly_coords( this, 0 ), plot_poly_coords( this, 1 ) )]];
 
 struct IFF_Chunk_PGRP_Dispatch {
     char id[4];
