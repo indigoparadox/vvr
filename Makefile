@@ -9,7 +9,7 @@ dump: obj/vvr.o obj/dump.o
 	gcc -o $@ $^
 
 d3dgl: obj/vvr.o obj/d3dgl.o
-	gcc -o $@ $^ $(shell pkg-config opengl glut --libs)
+	gcc -o $@ $^ -lm $(shell pkg-config opengl glut --libs)
 
 obj/%.o: src/%.c
 	mkdir -p $(dir $@)

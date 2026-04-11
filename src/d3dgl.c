@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 #include <unistd.h>
 #include <GL/gl.h>
 #include <GL/glut.h>
@@ -11,13 +12,11 @@
 #define OGL_SCREEN_W 1024
 #define OGL_SCREEN_H 768
 
-#define trans_coord( poly, idx, posn, xy ) \
-   (vvr_fix_endian_16( (poly)->coords[idx].xy))
-
 uint8_t* g_vvr_buf = NULL;
 size_t g_vvr_sz = 0;
-int g_rot = 180;
-int g_z = 0;
+float g_rot = 180.0f;
+float g_z = 0;
+float g_x = 0;
 
 int ogl_opengl_setup() {
    int retval = 0;
@@ -40,21 +39,116 @@ int ogl_opengl_setup() {
    glEnable( GL_CULL_FACE );
    glEnable( GL_NORMALIZE );
    glEnable( GL_DEPTH_TEST );
+   glEnable( GL_LIGHTING );
+   glEnable( GL_NORMALIZE );
+   glEnable( GL_COLOR_MATERIAL );
+
+   /*
+   glColorMaterial( GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE );
+   glShadeModel( GL_SMOOTH );
+   */
 
    return 0;
 }
 
 /* === */
 
-void ogl_face(
-   struct VVR_SECT_POLY* poly, struct VVR_SECT_POSN* posn, int i, int j,
-   float height
+void ogl_top(
+   struct VVR_SECT_POLY* poly, float height, int r, int g, int b
 ) {
-   /*
-   printf( "%d: %d, %d\n", i,
-      trans_coord( poly, i, posn, x ),
-      trans_coord( poly, i, posn, y ) );
-   */
+   int i = 0, cx = 0, cy = 0, lx = 0, ly = 0, hx = 0, hy = 0;
+
+   /* Figure out extreme vertices. */
+
+   hx = vvr_fix_endian_16( poly->coords[0].x );
+   hy = vvr_fix_endian_16( poly->coords[0].y );
+   lx = vvr_fix_endian_16( poly->coords[0].x );
+   ly = vvr_fix_endian_16( poly->coords[0].y );
+
+#ifdef DEBUG
+   printf( "drawing top...\n" );
+#endif /* DEBUG */
+
+#define hxlx_compare( xy ) \
+   if( vvr_fix_endian_16( poly->coords[i].xy ) > h ## xy ) { \
+      h ## xy = vvr_fix_endian_16( poly->coords[i].xy ); \
+   } else if( vvr_fix_endian_16( poly->coords[i].xy ) < l ## xy ) { \
+      l ## xy = vvr_fix_endian_16( poly->coords[i].xy ); \
+   }
+
+   for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
+#ifdef DEBUG
+      printf( "%d: x: %d, y: %d\n", i,
+         vvr_fix_endian_16( poly->coords[i].x ),
+         vvr_fix_endian_16( poly->coords[i].y ) );
+#endif /* DEBUG */
+
+      hxlx_compare( x );
+      hxlx_compare( y );
+   }
+
+#ifdef DEBUG
+   printf( "lx: %d, ly: %d, hx: %d, hy: %d\n", lx, ly, hx, hy );
+#endif /* DEBUG */
+
+   assert( hx > lx );
+   assert( hy > ly );
+
+   /* Figure out center point. */
+
+   cx = (0 > lx ? (hx + lx) : (hx - lx)) / 2;
+   cx = (0 > ly ? (hy + ly) : (hy - ly)) / 2;
+#ifdef DEBUG
+   printf( "cx: %d, cy: %d\n", cx, cy );
+#endif /* DEBUG */
+
+   /* Draw top faces. */
+
+   for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
+      glBegin( GL_TRIANGLES );
+      glNormal3f( 0, height, 0 );
+      glColor3f( r, g, b );
+
+      glVertex3f( /* Outer Left */
+         vvr_fix_endian_16( poly->coords[i - 1].x ),
+         height,
+         vvr_fix_endian_16( poly->coords[i - 1].y ) );
+      glVertex3f( /* Outer Right */
+         vvr_fix_endian_16( poly->coords[i].x ),
+         height,
+         vvr_fix_endian_16( poly->coords[i].y ) );
+      glVertex3f( cx, height, cy ); /* Center */
+      glEnd();
+   }
+
+   /* Draw final top face. */
+
+   glBegin( GL_TRIANGLES );
+   glNormal3f( 0, height, 0 );
+   glColor3f( r, g, b );
+   glVertex3f( /* Outer Left */
+      vvr_fix_endian_16( poly->coords[i - 1].x ),
+      height,
+      vvr_fix_endian_16( poly->coords[i - 1].y ) );
+   glVertex3f( /* Outer Right */
+      vvr_fix_endian_16( poly->coords[0].x ),
+      height,
+      vvr_fix_endian_16( poly->coords[0].y ) );
+   glVertex3f( cx, height, cy ); /* Center */
+   glEnd();
+}
+
+/* === */
+
+void ogl_face(
+   struct VVR_SECT_POLY* poly, int i, int j, float height, int r, int g, int b
+) {
+   glBegin( GL_TRIANGLES );
+   glNormal3f(
+      vvr_fix_endian_16( poly->coords[i].x ),
+      0,
+      0 );
+   glColor3f( r, g, b );
 
    /* Lower Triangle */
    glVertex3f( /* Left Low */
@@ -83,6 +177,7 @@ void ogl_face(
       vvr_fix_endian_16( poly->coords[i].x ),
       0,
       vvr_fix_endian_16( poly->coords[i].y ) );
+   glEnd();
 
 }
 
@@ -97,18 +192,25 @@ void ogl_opengl_frame() {
    struct VVR_SECT_COLR* colr = NULL;
 
    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+
+   glEnable( GL_LIGHT0 );
+
    glPushMatrix();
 
    glRotatef( g_rot, 0, 1, 0 );
 
-   glTranslatef( 0, -20.0f, g_z );
+   glTranslatef( g_x, -20.0f, g_z );
 
+#ifdef DEBUG
    printf( "drawing...\n" );
+#endif /* DEBUG */
 
 	/* Redraw loaded objects. */
    while( NULL != (next = next_sect( "PRSM", g_vvr_buf, g_vvr_sz, 1, &i )) ) {
       prsm = (struct VVR_SECT_GENERIC*)&(g_vvr_buf[i]);
+#ifdef DEBUG
       printf( "found PRSM @ 0x%x, diving...\n", i );
+#endif /* DEBUG */
 
       glPushMatrix();
 
@@ -117,8 +219,6 @@ void ogl_opengl_frame() {
       colr = (struct VVR_SECT_COLR*)next_sect(
          "COLR", g_vvr_buf, g_vvr_sz, 1, &j );
       assert( NULL != colr );
-
-      glColor3f( colr->color1.r, colr->color1.g, colr->color2.b );
 
       /* Dive into the PRSM section for POSN sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
@@ -141,12 +241,14 @@ void ogl_opengl_frame() {
          poly = (struct VVR_SECT_POLY*)next;
          /* TODO */
 
-         glBegin( GL_TRIANGLES );
          for( k = 1 ; vvr_fix_endian_32( poly->coords_ct ) > k ; k++ ) {
-            ogl_face( poly, posn, k - 1, k, 20.0f );
+            ogl_face( poly, k - 1, k, 20.0f,
+               colr->color1.r, colr->color1.g, colr->color1.b );
          }
-         ogl_face( poly, posn, k - 1, 0, 20.0f );
-         glEnd();
+         ogl_face( poly, k - 1, 0, 20.0f,
+            colr->color1.r, colr->color1.g, colr->color1.b );
+         ogl_top( poly, 20.0f,
+            colr->color1.r, colr->color1.g, colr->color1.b );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( poly->head.sz ) +
@@ -167,14 +269,17 @@ void ogl_opengl_frame() {
 /* === */
 
 void ogl_key_in( unsigned char key, int x, int y ) {
+
    switch( key ) {
       case 'w':
-         g_z += 2;
+         g_z += cosf( (g_rot * (2.0f * 3.14f)) / 360.0f ) * 0.5f;
+         g_x -= sinf( (g_rot * (2.0f * 3.14f)) / 360.0f ) * 0.5f;
          glutPostRedisplay();
          break;
 
       case 's':
-         g_z -= 2;
+         g_z -= cosf( (g_rot * (2.0f * 3.14f)) / 360.0f ) * 0.5f;
+         g_x += sinf( (g_rot * (2.0f * 3.14f)) / 360.0f ) * 0.5f;
          glutPostRedisplay();
          break;
 
