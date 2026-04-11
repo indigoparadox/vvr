@@ -45,10 +45,7 @@ int ogl_opengl_setup() {
    glEnable( GL_NORMALIZE );
    glEnable( GL_COLOR_MATERIAL );
    glColorMaterial( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
-
-   /*
    glShadeModel( GL_SMOOTH );
-   */
 
    return 0;
 }
@@ -64,7 +61,7 @@ void ogl_draw_face_seg(
    float* color
 ) {
    glBegin( GL_TRIANGLES );
-   glNormal3f( 0, 1.0f, 0 );
+   glNormal3f( x_outside1, y_top, y_outside1 );
    glColor4fv( color );
 
    glVertex3f( /* Outer Left */
@@ -91,8 +88,10 @@ void ogl_draw_face_seg(
 void ogl_draw_top(
    struct VVR_SECT_POLY* poly, float height, int layer, float* color
 ) {
-   int i = 0, cx = 0, cy = 0, lx = 0, ly = 0, hx = 0, hy = 0;
-   float y_edges = 0, y_center = height;
+   int i = 0;
+   float
+      cx = 0, cy = 0, lx = 0, ly = 0, hx = 0, hy = 0,
+      y_edges = 0, y_center = height;
 
    switch( poly->vprofile ) {
    case VVR_POLYPROF_SOLID:
@@ -256,7 +255,7 @@ void ogl_opengl_frame() {
          "POSN", g_vvr_buf, g_vvr_sz, 1, &j );
       assert( NULL != posn );
 
-      glScalef( 0.5f, 0.5f, 0.5f );
+      glScalef( 0.8f, 0.8f, 0.8f );
 
       glTranslatef(
          vvr_fix_endian_16( posn->x.integer ),
