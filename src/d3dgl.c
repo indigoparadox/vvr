@@ -29,7 +29,7 @@ int ogl_opengl_setup() {
    aspect_ratio = OGL_SCREEN_W / OGL_SCREEN_H;
    glMatrixMode( GL_PROJECTION );
    glLoadIdentity();
-   rzoom = 1.0f;
+   rzoom = 0.5f;
    glFrustum(
       -1.0f * rzoom * aspect_ratio,
       rzoom * aspect_ratio,
@@ -39,13 +39,14 @@ int ogl_opengl_setup() {
    glMatrixMode( GL_MODELVIEW );
    glClearColor( 0, 0, 0, 0 );
    glEnable( GL_CULL_FACE );
-   glEnable( GL_NORMALIZE );
    glEnable( GL_DEPTH_TEST );
    glEnable( GL_LIGHTING );
    glEnable( GL_NORMALIZE );
-   glEnable( GL_COLOR_MATERIAL );
-   glColorMaterial( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
    glShadeModel( GL_SMOOTH );
+   /*
+   glEnable( GL_COLOR_MATERIAL );
+   glColorMaterial( GL_FRONT_AND_BACK, GL_DIFFUSE );
+   */
 
    return 0;
 }
@@ -61,8 +62,16 @@ void ogl_draw_face_seg(
    float* color
 ) {
    glBegin( GL_TRIANGLES );
-   glNormal3f( x_outside1, y_top, y_outside1 );
-   glColor4fv( color );
+   glMaterialfv( GL_FRONT, GL_DIFFUSE, color );
+   glMaterialfv( GL_FRONT, GL_SPECULAR, color );
+
+   if( y_top > y_bottom ) {
+      /* Slope */
+      glNormal3f( x_outside2 - x_outside1, y_top, y_outside2 - y_outside1 );
+   } else {
+      /* Flat */
+      glNormal3f( 0, 1.0, 0 );
+   }
 
    glVertex3f( /* Outer Left */
       x_outside1, y_bottom, y_outside1 );
@@ -72,6 +81,7 @@ void ogl_draw_face_seg(
       x_inside1, y_top, y_inside1 );
 
    if( x_inside1 != x_inside2 || y_inside1 != y_inside2 ) {
+      /* Vertical surface, so make rectangular. */
       glVertex3f( /* Center Right */
          x_inside2, y_top, y_inside2 );
       glVertex3f( /* Center Left */
@@ -215,15 +225,18 @@ void ogl_opengl_frame() {
    struct VVR_SECT_POLY* poly = NULL;
    struct VVR_SECT_COLR* colr = NULL;
    float color[4] = { 0, 0, 0, 1.0f };
+   float no_light[] = { 0, 0, 0, 1 };
+   float white[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+   float light_pos[] = { 0, 50.0f, 0, 1.0f };
 
    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
    glEnable( GL_LIGHT0 );
+   glLightfv( GL_LIGHT0, GL_AMBIENT, no_light );
 
    glPushMatrix();
 
    glRotatef( g_rot, 0, 1, 0 );
-
    glTranslatef( g_x, -20.0f, g_z );
 
 #ifdef DEBUG
@@ -255,7 +268,7 @@ void ogl_opengl_frame() {
          "POSN", g_vvr_buf, g_vvr_sz, 1, &j );
       assert( NULL != posn );
 
-      glScalef( 0.8f, 0.8f, 0.8f );
+      glScalef( 0.3f, 0.3f, 0.3f );
 
       glTranslatef(
          vvr_fix_endian_16( posn->x.integer ),
@@ -282,6 +295,13 @@ void ogl_opengl_frame() {
       /* Skip to section after PRSM (size plus sz/sect fields). */
       i += vvr_fix_endian_32( prsm->head.sz ) + sizeof( struct VVR_SECT_HEAD );
    }
+
+   light_pos[0] *= 5;
+   light_pos[2] *= 5;
+#ifdef DEBUG
+   printf( "light at: %f, %f\n", light_pos[0], light_pos[2] );
+#endif /* DEBUG */
+   glLightfv( GL_LIGHT0, GL_POSITION, light_pos );
 
    glPopMatrix();
 
