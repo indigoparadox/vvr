@@ -12,6 +12,8 @@
 #define OGL_SCREEN_W 1024
 #define OGL_SCREEN_H 768
 
+#define STATIC_BULGE 1.0f
+
 #define STATIC_HEIGHT 30.0f
 
 uint8_t* g_vvr_buf = NULL;
@@ -95,13 +97,20 @@ void ogl_draw_face_seg(
 
 /* === */
 
+float apply_bulge( float t ) {
+   float b = STATIC_BULGE * t * (1.0f - t);
+   return t - (b + t) * 0.5f;
+}
+
+/* === */
+
 void ogl_draw_top(
    struct VVR_SECT_POLY* poly, float height, int layer, float* color
 ) {
    int i = 0, i0 = 0, j = 0;
    float
       cx = 0, cy = 0, lx = 0, ly = 0, hx = 0, hy = 0,
-      segt = 0, segb = 0,
+      segt = 0, segb = 0, segt_b = 0, segb_b = 0,
       m1bx = 0, m1by = 0, m2bx = 0, m2by = 0, /* Middle Bottom */
       m1tx = 0, m1ty = 0, m2tx = 0, m2ty = 0; /* Middle Top */
 
@@ -162,30 +171,50 @@ void ogl_draw_top(
       for( j = 1 ; vvr_fix_endian_16( poly->vsegs ) >= j ; j++ ) {
          /* Figure out the bottom of the segment using parameter segb. */
          segb = ((float)j - 1) / (float)vvr_fix_endian_16( poly->vsegs );
-         m1bx = (float)vvr_fix_endian_16( poly->coords[i - 1].x ) + segb *
+         if( vvr_fix_endian_16( poly->vsegs ) > 1 ) {
+            /* Apply bulge to multi-segmented coords below if more segs coming
+             * later.
+             */
+            segb_b = apply_bulge( segb );
+         } else {
+            segb_b = segb;
+         }
+         m1bx = (float)vvr_fix_endian_16( poly->coords[i - 1].x ) + segb_b *
             (cx - (float)vvr_fix_endian_16( poly->coords[i - 1].x));
-         m1by = (float)vvr_fix_endian_16( poly->coords[i - 1].y ) + segb *
+         m1by = (float)vvr_fix_endian_16( poly->coords[i - 1].y ) + segb_b *
             (cy - (float)vvr_fix_endian_16( poly->coords[i - 1].y));
-         m2bx = (float)vvr_fix_endian_16( poly->coords[i0].x ) + segb *
+         m2bx = (float)vvr_fix_endian_16( poly->coords[i0].x ) + segb_b *
             (cx - (float)vvr_fix_endian_16( poly->coords[i0].x));
-         m2by = (float)vvr_fix_endian_16( poly->coords[i0].y ) + segb *
+         m2by = (float)vvr_fix_endian_16( poly->coords[i0].y ) + segb_b *
             (cy - (float)vvr_fix_endian_16( poly->coords[i0].y));
 
          /* Figure out the top of the segment using parameter segt. */
          segt = (float)j / (float)vvr_fix_endian_16( poly->vsegs );
-         m1tx = (float)vvr_fix_endian_16( poly->coords[i - 1].x ) + segt *
+         if( vvr_fix_endian_16( poly->vsegs ) > j ) {
+            /* Apply bulge to multi-segmented coords below if not at peak. */
+            segt_b = apply_bulge( segt );
+         } else {
+            segt_b = segt;
+         }
+         m1tx = (float)vvr_fix_endian_16( poly->coords[i - 1].x ) +
+            (segt_b) *
             (cx - (float)vvr_fix_endian_16( poly->coords[i - 1].x));
-         m1ty = (float)vvr_fix_endian_16( poly->coords[i - 1].y ) + segt *
+         m1ty = (float)vvr_fix_endian_16( poly->coords[i - 1].y ) +
+            (segt_b) *
             (cy - (float)vvr_fix_endian_16( poly->coords[i - 1].y));
-         m2tx = (float)vvr_fix_endian_16( poly->coords[i0].x ) + segt *
+         m2tx = (float)vvr_fix_endian_16( poly->coords[i0].x ) +
+            (segt_b) *
             (cx - (float)vvr_fix_endian_16( poly->coords[i0].x));
-         m2ty = (float)vvr_fix_endian_16( poly->coords[i0].y ) + segt *
+         m2ty = (float)vvr_fix_endian_16( poly->coords[i0].y ) +
+            (segt_b) *
             (cy - (float)vvr_fix_endian_16( poly->coords[i0].y));
 
          ogl_draw_face_seg( 
             m1bx, m1by, m2bx, m2by, /* Bottom */
             m1tx, m1ty, m2tx, m2ty, /* Top */
-            VVR_POLYPROF_SOLID == poly->vprofile ? height : segb * height,
+            /* Never apply bulge to height. */
+            VVR_POLYPROF_SOLID == poly->vprofile ? height :
+               segb * height,
             segt * height, color );
       }
    }
