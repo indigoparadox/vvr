@@ -4,23 +4,23 @@ import OpenGL.GL as GL
 
 from . import vvr
 
-def render_face_3d( coord_a, coord_b, posn, height=4.0 ):
+def render_face_3d( coord_a, coord_b, height=4.0 ):
 
     # Lower Triangle
     GL.glVertex3f( # Left Low
-        coord_a[0] + posn[0], 0, coord_a[1] + posn[1] )
+        coord_a[0], 0, coord_a[1] )
     GL.glVertex3f( # Right Low
-        coord_b[0] + posn[0], 0, coord_b[1] + posn[1] )
+        coord_b[0], 0, coord_b[1] )
     GL.glVertex3f( # Right High
-        coord_b[0] + posn[0], height, coord_b[1] + posn[1] )
+        coord_b[0], height, coord_b[1] )
 
     # Upper Triangle
     GL.glVertex3f( # Right High
-        coord_b[0] + posn[0], height, coord_b[1] + posn[1] )
+        coord_b[0], height, coord_b[1] )
     GL.glVertex3f( # Left High
-        coord_a[0] + posn[0], height, coord_a[1] + posn[1] )
+        coord_a[0], height, coord_a[1] )
     GL.glVertex3f( # Left Low
-        coord_a[0] + posn[0], 0, coord_a[1] + posn[1] )
+        coord_a[0], 0, coord_a[1] )
 
 def render_vvr( **kwargs ):
 
@@ -58,8 +58,8 @@ def render_vvr( **kwargs ):
         if kwargs['threed']:
             GL.glClear( GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT );
             GL.glPushMatrix();
-            GL.glRotatef( cam_rot, 0, 1, 0 );
             GL.glTranslatef( 0, -20.0, cam_z );
+            GL.glRotatef( cam_rot, 0, 1, 0 );
         
         for prsm in vvr_parms[1]['ROOT'][0]['PRSM']:
             color = (prsm['COLR'][0][1],
@@ -67,6 +67,11 @@ def render_vvr( **kwargs ):
                 prsm['COLR'][0][3])
 
             if kwargs['threed']:
+                GL.glPushMatrix();
+                GL.glTranslatef(
+                    int( prsm['POSN'][0][0] ),
+                    0,
+                    int( prsm['POSN'][0][1] ) )
                 GL.glColor3f(
                     prsm['COLR'][0][1],
                     prsm['COLR'][0][2],
@@ -84,9 +89,7 @@ def render_vvr( **kwargs ):
                 #    color )
                 if last_coord:
                     if kwargs['threed']:
-                        render_face_3d( last_coord, coord,
-                            (int( prsm['POSN'][0][0] ),
-                            int( prsm['POSN'][0][1] )) )
+                        render_face_3d( last_coord, coord )
                     else:
                         pygame.draw.line( screen, color,
                             (last_coord[0] + offset + int( prsm['POSN'][0][0] ),
@@ -99,6 +102,7 @@ def render_vvr( **kwargs ):
             if kwargs['threed']:
                 # TODO Last Face
                 GL.glEnd()
+                GL.glPopMatrix();
             else:
                 pygame.draw.line( screen, color,
                     (last_coord[0] + offset + int( prsm['POSN'][0][0] ),

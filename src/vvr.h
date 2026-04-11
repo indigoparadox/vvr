@@ -10,7 +10,8 @@
 
 #define vvr_fix_endian_32( x ) (((x >> 24) & 0xff) | ((x << 8) & 0xff0000) | ((x >> 8) & 0xff00) | ((x << 24) & 0xff000000))
 
-#define vvr_fix_endian_16( x ) (((x << 8) & 0xff) | ((x >> 8) & 0xff))
+#define vvr_fix_endian_16( x ) \
+   (int16_t)(((uint16_t)(x) >> 8) | ((uint16_t)(x) << 8))
 
 struct IFF_FORM {
    char form[4];
