@@ -82,13 +82,15 @@ void dump_poly( struct VVR_SECT_POLY* poly, uint8_t flags, uint8_t cols ) {
          if( DUMP_FLAG_HEX == (DUMP_FLAG_HEX & flags) ) {
             printf(
                " (%2d) 0x%08x, 0x%08x\n", i,
-               *(uint32_t*)&(poly->coords[i].x),
-               *(uint32_t*)&(poly->coords[i].y) );
+               vvr_fix_endian_32( *(uint32_t*)&(poly->coords[i].x) ),
+               vvr_fix_endian_32( *(uint32_t*)&(poly->coords[i].y) ) );
          } else {
             printf(
-               " (%d) %d, %d\n", i,
-               poly->coords[i].x,
-               poly->coords[i].y );
+               " (%d) %d (%u), %d (%u)\n", i,
+               vvr_fix_endian_16( poly->coords[i].x ),
+               vvr_fix_endian_16( poly->coords[i].x_pad ),
+               vvr_fix_endian_16( poly->coords[i].y ),
+               vvr_fix_endian_16( poly->coords[i].y_pad ) );
          }
       }
       printf( "\n" );

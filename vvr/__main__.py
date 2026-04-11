@@ -16,6 +16,7 @@ def main():
     parser_dump.set_defaults( func=dump.dump_vvr )
 
     parser_render = subparsers.add_parser( 'render' )
+    parser_render.add_argument( '-3', '--threed', action='store_true' )
     parser_render.add_argument( 'vvr_path' )
     parser_render.set_defaults( func=render.render_vvr )
 

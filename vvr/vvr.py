@@ -23,9 +23,6 @@ def parse_poly( header : tuple[str, int], body : bytes ):
 
     body_out = {}
 
-    print( len( body ) )
-    print( type( body ) )
-    print( body )
     body_out['meta'] = struct.unpack( '>4BHHHHLLLLL', body[0:32] )
 
     body_out['coords'] = []

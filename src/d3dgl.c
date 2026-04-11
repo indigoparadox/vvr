@@ -11,8 +11,13 @@
 #define OGL_SCREEN_W 1024
 #define OGL_SCREEN_H 768
 
+#define trans_coord( poly, idx, posn, xy ) \
+   (vvr_fix_endian_16( *(uint16_t*)&((poly)->coords[idx].xy) ))
+
 uint8_t* g_vvr_buf = NULL;
 size_t g_vvr_sz = 0;
+int g_rot = 180;
+int g_z = 0;
 
 int ogl_opengl_setup() {
    int retval = 0;
@@ -29,7 +34,7 @@ int ogl_opengl_setup() {
       rzoom * aspect_ratio,
       -1.0f * rzoom,
       rzoom,
-      0.5f, 20.0f );
+      0.5f, 80.0f );
    glMatrixMode( GL_MODELVIEW );
    glClearColor( 0, 0, 0, 0 );
    glEnable( GL_CULL_FACE );
@@ -41,28 +46,48 @@ int ogl_opengl_setup() {
 
 /* === */
 
-void ogl_face( struct VVR_SECT_POLY* poly, int seg_count ) {
-   int i = 0;
-   float x, y, z;
+void ogl_face(
+   struct VVR_SECT_POLY* poly, struct VVR_SECT_POSN* posn, int i, int j
+) {
+   printf( "%d: %d, %d\n", i,
+      trans_coord( poly, i, posn, x ),
+      trans_coord( poly, i, posn, y ) );
 
-   glBegin( GL_QUADS );
+   /* Lower Triangle */
+   glVertex3f( /* Prev Left Low */
+      trans_coord( poly, i, posn, x ),
+      0,
+      trans_coord( poly, i, posn, y ) );
+   glVertex3f( /* Cur Right Low */
+      trans_coord( poly, j, posn, x ),
+      0,
+      trans_coord( poly, j, posn, y ) );
+   glVertex3f( /* Cur Right High */
+      trans_coord( poly, j, posn, x ),
+      4.0f,
+      trans_coord( poly, j, posn, y ) );
 
-   for( i = 0 ; seg_count > i ; i++ ) {
-      y = poly->coords[i].x >> 12;
-      x = poly->coords[i].y >> 12;
-      z = 1.0f;
-      printf( "%f, %f, %f\n", x, y, z );
-      glVertex3f( x, y, z );
-   }
+   /* Upper Triangle */
+   glVertex3f( /* Cur Right High */
+      trans_coord( poly, j, posn, x ),
+      4.0f,
+      trans_coord( poly, j, posn, y ) );
+   glVertex3f( /* Prev Left High */
+      trans_coord( poly, i, posn, x ),
+      4.0f,
+      trans_coord( poly, i, posn, y ) );
+   glVertex3f( /* Prev Left Low */
+      trans_coord( poly, i, posn, x ),
+      0,
+      trans_coord( poly, i, posn, y ) );
 
-   glEnd();
 }
 
 /* === */
 
 void ogl_opengl_frame() {
    uint8_t* next = NULL;
-   int i = 0, j = 0, seg_count = 0;
+   int i = 0, j = 0, k = 0;
    struct VVR_SECT_POSN* posn = NULL;
    struct VVR_SECT_GENERIC* prsm = NULL;
    struct VVR_SECT_POLY* poly = NULL;
@@ -71,7 +96,9 @@ void ogl_opengl_frame() {
    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
    glPushMatrix();
 
-   glTranslatef( 0, 0, -3.0f );
+   glTranslatef( 0, -20.0f, g_z );
+
+   glRotatef( g_rot, 0, 1, 0 );
 
    printf( "drawing...\n" );
 
@@ -84,31 +111,19 @@ void ogl_opengl_frame() {
 
       /* Dive into the PRSM section for COLR sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
-      while(
-         NULL != (next = next_sect( "COLR", g_vvr_buf, g_vvr_sz, 1, &j ))
-      ) {
-         colr = (struct VVR_SECT_COLR*)next;
-         /* TODO */
+      colr = (struct VVR_SECT_COLR*)next_sect(
+         "COLR", g_vvr_buf, g_vvr_sz, 1, &j );
+      assert( NULL != colr );
 
-         /* glColor3i( colr->color1.r, colr->color1.g, colr->color2.b ); */
+      glScalef( 0.10f, 0.10f, 0.10f );
 
-         /* Skip to section after POSN (size plus sz/sect fields). */
-         j += vvr_fix_endian_32( colr->head.sz ) +
-            sizeof( struct VVR_SECT_HEAD );
-      }
+      glColor3f( colr->color1.r, colr->color1.g, colr->color2.b );
 
       /* Dive into the PRSM section for POSN sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
-      while(
-         NULL != (next = next_sect( "POSN", g_vvr_buf, g_vvr_sz, 1, &j ))
-      ) {
-         posn = (struct VVR_SECT_POSN*)next;
-         /* TODO */
-
-         /* Skip to section after POSN (size plus sz/sect fields). */
-         j += vvr_fix_endian_32( posn->head.sz ) +
-            sizeof( struct VVR_SECT_HEAD );
-      }
+      posn = (struct VVR_SECT_POSN*)next_sect(
+         "POSN", g_vvr_buf, g_vvr_sz, 1, &j );
+      assert( NULL != posn );
 
       /* Dive into the PRSM section for POLY sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
@@ -118,7 +133,12 @@ void ogl_opengl_frame() {
          poly = (struct VVR_SECT_POLY*)next;
          /* TODO */
 
-         ogl_face( poly, vvr_fix_endian_32( poly->coords_ct ) );
+         glBegin( GL_TRIANGLES );
+         for( k = 1 ; vvr_fix_endian_32( poly->coords_ct ) > k ; k++ ) {
+            ogl_face( poly, posn, k - 1, k );
+         }
+         ogl_face( poly, posn, k - 1, 0 );
+         glEnd();
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( poly->head.sz ) +
@@ -134,6 +154,38 @@ void ogl_opengl_frame() {
    glPopMatrix();
 
    glutSwapBuffers();
+}
+
+/* === */
+
+void ogl_key_in( unsigned char key, int x, int y ) {
+   switch( key ) {
+      case 'w':
+         g_z += 2;
+         glutPostRedisplay();
+         break;
+
+      case 's':
+         g_z -= 2;
+         glutPostRedisplay();
+         break;
+
+      case 'd':
+         g_rot += 10;
+         if( 360 <= g_rot ) {
+            g_rot = 0;
+         }
+         glutPostRedisplay();
+         break;
+
+      case 'a':
+         g_rot -= 10;
+         if( 0 > g_rot ) {
+            g_rot = 350;
+         }
+         glutPostRedisplay();
+         break;
+   }
 }
 
 /* === */
@@ -156,6 +208,7 @@ int main( int argc, char* argv[] ) {
    retval = ogl_opengl_setup();  
 
    glutDisplayFunc( ogl_opengl_frame );
+   glutKeyboardFunc( ogl_key_in );
 
    /* Load the VVR. */
 
