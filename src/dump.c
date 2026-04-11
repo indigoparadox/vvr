@@ -49,14 +49,6 @@ void dump_poly( struct VVR_SECT_POLY* poly, uint8_t flags, uint8_t cols ) {
    int i = 0;
 
    switch( poly->head.sz ) {
-      case VVR_POLY_SZ_RECT:
-         shape_str = shape_cub;
-         break;
-
-      case VVR_POLY_SZ_CIRCLE:
-         shape_str = poly->vsegs > 1 ? shape_sph : shape_cyl;
-         break;
-
       default:
          shape_str = shape_unk;
          break;

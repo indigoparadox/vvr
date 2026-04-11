@@ -12,6 +12,8 @@
 #define OGL_SCREEN_W 1024
 #define OGL_SCREEN_H 768
 
+#define STATIC_HEIGHT 30.0f
+
 uint8_t* g_vvr_buf = NULL;
 size_t g_vvr_sz = 0;
 float g_rot = 180.0f;
@@ -42,9 +44,9 @@ int ogl_opengl_setup() {
    glEnable( GL_LIGHTING );
    glEnable( GL_NORMALIZE );
    glEnable( GL_COLOR_MATERIAL );
+   glColorMaterial( GL_FRONT, GL_AMBIENT_AND_DIFFUSE );
 
    /*
-   glColorMaterial( GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE );
    glShadeModel( GL_SMOOTH );
    */
 
@@ -53,10 +55,40 @@ int ogl_opengl_setup() {
 
 /* === */
 
+void ogl_face_seg(
+   float x_outside1, float y_outside1,
+   float x_outside2, float y_outside2,
+   float x_inside1, float y_inside1,
+   float x_inside2, float y_inside2,
+   float y_bottom, float y_top,
+   float* color
+) {
+   glBegin( GL_TRIANGLES );
+   glNormal3f( 0, 1.0f, 0 );
+   glColor4fv( color );
+
+   glVertex3f( /* Outer Left */
+      x_outside1, y_bottom, y_outside1 );
+   glVertex3f( /* Outer Right */
+      x_outside2, y_bottom, y_outside2 );
+   glVertex3f( /* Center */
+      x_inside1, y_top, y_inside1 );
+   glEnd();
+}
+
+/* === */
+
 void ogl_top(
-   struct VVR_SECT_POLY* poly, float height, int r, int g, int b
+   struct VVR_SECT_POLY* poly, float height, int layer, float* color
 ) {
    int i = 0, cx = 0, cy = 0, lx = 0, ly = 0, hx = 0, hy = 0;
+   float y_edges = 0, y_center = height;
+
+   switch( poly->vprofile ) {
+   case VVR_POLYPROF_SOLID:
+      y_edges = height;
+      break;
+   }
 
    /* Figure out extreme vertices. */
 
@@ -97,7 +129,7 @@ void ogl_top(
    /* Figure out center point. */
 
    cx = (0 > lx ? (hx + lx) : (hx - lx)) / 2;
-   cx = (0 > ly ? (hy + ly) : (hy - ly)) / 2;
+   cy = (0 > ly ? (hy + ly) : (hy - ly)) / 2;
 #ifdef DEBUG
    printf( "cx: %d, cy: %d\n", cx, cy );
 #endif /* DEBUG */
@@ -105,50 +137,31 @@ void ogl_top(
    /* Draw top faces. */
 
    for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
-      glBegin( GL_TRIANGLES );
-      glNormal3f( 0, height, 0 );
-      glColor3f( r, g, b );
-
-      glVertex3f( /* Outer Left */
+      ogl_face_seg( 
          vvr_fix_endian_16( poly->coords[i - 1].x ),
-         height,
-         vvr_fix_endian_16( poly->coords[i - 1].y ) );
-      glVertex3f( /* Outer Right */
+         vvr_fix_endian_16( poly->coords[i - 1].y ),
          vvr_fix_endian_16( poly->coords[i].x ),
-         height,
-         vvr_fix_endian_16( poly->coords[i].y ) );
-      glVertex3f( cx, height, cy ); /* Center */
-      glEnd();
+         vvr_fix_endian_16( poly->coords[i].y ),
+         cx, cy, cx, cy, y_edges, y_center, color );
    }
 
    /* Draw final top face. */
-
-   glBegin( GL_TRIANGLES );
-   glNormal3f( 0, height, 0 );
-   glColor3f( r, g, b );
-   glVertex3f( /* Outer Left */
+   ogl_face_seg( 
       vvr_fix_endian_16( poly->coords[i - 1].x ),
-      height,
-      vvr_fix_endian_16( poly->coords[i - 1].y ) );
-   glVertex3f( /* Outer Right */
+      vvr_fix_endian_16( poly->coords[i - 1].y ),
       vvr_fix_endian_16( poly->coords[0].x ),
-      height,
-      vvr_fix_endian_16( poly->coords[0].y ) );
-   glVertex3f( cx, height, cy ); /* Center */
-   glEnd();
+      vvr_fix_endian_16( poly->coords[0].y ),
+      cx, cy, cx, cy, y_edges, y_center, color );
 }
 
 /* === */
 
 void ogl_face(
-   struct VVR_SECT_POLY* poly, int i, int j, float height, int r, int g, int b
+   struct VVR_SECT_POLY* poly, int i, int j, float height, float* color
 ) {
    glBegin( GL_TRIANGLES );
-   glNormal3f(
-      vvr_fix_endian_16( poly->coords[i].x ),
-      0,
-      0 );
-   glColor3f( r, g, b );
+   glColor4fv( color );
+   glNormal3f( 1.0f, 0, 0 );
 
    /* Lower Triangle */
    glVertex3f( /* Left Low */
@@ -190,6 +203,7 @@ void ogl_opengl_frame() {
    struct VVR_SECT_GENERIC* prsm = NULL;
    struct VVR_SECT_POLY* poly = NULL;
    struct VVR_SECT_COLR* colr = NULL;
+   float color[4] = { 0, 0, 0, 1.0f };
 
    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
@@ -220,6 +234,10 @@ void ogl_opengl_frame() {
          "COLR", g_vvr_buf, g_vvr_sz, 1, &j );
       assert( NULL != colr );
 
+      color[0] = colr->color1.r;
+      color[1] = colr->color1.g;
+      color[2] = colr->color1.b;
+
       /* Dive into the PRSM section for POSN sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
       posn = (struct VVR_SECT_POSN*)next_sect(
@@ -242,13 +260,14 @@ void ogl_opengl_frame() {
          /* TODO */
 
          for( k = 1 ; vvr_fix_endian_32( poly->coords_ct ) > k ; k++ ) {
-            ogl_face( poly, k - 1, k, 20.0f,
-               colr->color1.r, colr->color1.g, colr->color1.b );
+            if( VVR_POLYPROF_SOLID == poly->vprofile ) {
+               ogl_face( poly, k - 1, k, STATIC_HEIGHT, color );
+            }
          }
-         ogl_face( poly, k - 1, 0, 20.0f,
-            colr->color1.r, colr->color1.g, colr->color1.b );
-         ogl_top( poly, 20.0f,
-            colr->color1.r, colr->color1.g, colr->color1.b );
+         if( VVR_POLYPROF_SOLID == poly->vprofile ) {
+            ogl_face( poly, k - 1, 0, STATIC_HEIGHT, color );
+         }
+         ogl_top( poly, STATIC_HEIGHT, 0, color );
 
          /* Skip to section after POSN (size plus sz/sect fields). */
          j += vvr_fix_endian_32( poly->head.sz ) +

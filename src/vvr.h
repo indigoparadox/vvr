@@ -5,8 +5,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define VVR_POLY_SZ_RECT 64
-#define VVR_POLY_SZ_CIRCLE 160
+#define VVR_POLYPROF_SOLID 1
+#define VVR_POLYPROF_PYRAMID 2
+#define VVR_POLYPROF_SYMMETRIC 3
+#define VVR_POLYPROF_DOME 4
 
 #define vvr_fix_endian_32( x ) (((x >> 24) & 0xff) | ((x << 8) & 0xff0000) | ((x >> 8) & 0xff00) | ((x << 24) & 0xff000000))
 
@@ -56,7 +58,8 @@ struct VVR_SECT_GENERIC {
 
 struct VVR_SECT_POLY {
    struct VVR_SECT_HEAD head;
-   uint8_t u1[4];
+   uint8_t u1[3];
+   uint8_t vprofile;
    uint16_t vsegs;
    uint16_t vscale;
    uint16_t u2;

@@ -103,13 +103,27 @@ fn plot_poly_coords( IFF_Chunk_POLY p, u32 xy ) {
     return xy_out;
 };
 
+struct POLYProfile {
+    u8 vprofile;
+    match( vprofile ) {
+    (1): str vprofile_str = "solid";
+    (3): str vprofile_str = "symmetric";
+    (4): str vprofile_str = "dome";
+    (_): str vprofile_str = "unknown";
+    }
+} [[format_read( "print_polyprofile" )]];
+
+fn print_polyprofile( POLYProfile v ) {
+    return v.vprofile_str;
+};
+
 struct IFF_Chunk_POLY {
     u32 size;
     auto start_offset = $;
     u8 u1a; // ???
     u8 u1b; // ???
     u8 u1c; // ???
-    u8 u1d; // ???
+    POLYProfile vertical_profile;
     u16 vertical_segments;
     u16 vertical_scale; // ???
     u16 u2; // ???
