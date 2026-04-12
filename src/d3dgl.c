@@ -19,6 +19,7 @@
 uint8_t* g_vvr_buf = NULL;
 size_t g_vvr_sz = 0;
 float g_rot = 180.0f;
+float g_y = 0;
 float g_z = 0;
 float g_x = 0;
 
@@ -105,7 +106,7 @@ float apply_bulge( float t ) {
 /* === */
 
 void ogl_draw_top(
-   struct VVR_SECT_POLY* poly, float height, int layer, float* color
+   struct VVR_SECT_POLY* poly, float base, float top, float* color
 ) {
    int i = 0, i0 = 0, j = 0;
    float
@@ -212,10 +213,11 @@ void ogl_draw_top(
          ogl_draw_face_seg( 
             m1bx, m1by, m2bx, m2by, /* Bottom */
             m1tx, m1ty, m2tx, m2ty, /* Top */
-            /* Never apply bulge to height. */
-            VVR_POLYPROF_SOLID == poly->vprofile ? height :
-               segb * height,
-            segt * height, color );
+            /* Never apply bulge to top. */
+            base + 
+               (VVR_POLYPROF_SOLID == poly->vprofile ? top :
+               (segb * top)),
+            (segt * top), color );
       }
    }
 }
@@ -223,40 +225,46 @@ void ogl_draw_top(
 /* === */
 
 void ogl_draw_poly( struct VVR_SECT_POLY* poly, float* color ) {
-   int i = 0;
+   int i = 0, i0 = 0;
+   float zl = 0, zh = 0;
+
+   if( vvr_fix_endian_16( poly->z1 ) > vvr_fix_endian_16( poly->z2 ) ) {
+      zh = vvr_fix_endian_16( poly->z1 );
+      zl = vvr_fix_endian_16( poly->z2 );
+   } else {
+      zl = vvr_fix_endian_16( poly->z1 );
+      zh = vvr_fix_endian_16( poly->z2 );
+   }
+
+   /* Normalize so the base is always 0. This just makes the math easier. */
+   if( 0 > zl ) {
+      glTranslatef( 0, 0 - zl, 0 );
+      zh += abs( zl );
+      zl = 0;
+   }
 
    /* Iterate around each side. */
-   for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
-      if( VVR_POLYPROF_SOLID == poly->vprofile ) {
+   if( VVR_POLYPROF_SOLID == poly->vprofile ) {
+      for( i = 1 ; vvr_fix_endian_32( poly->coords_ct ) >= i ; i++ ) {
+
+         i0 = vvr_fix_endian_32( poly->coords_ct ) > i ? i : 0;
+
          /* Solid shape gets vertical walls. */
          ogl_draw_face_seg( 
             vvr_fix_endian_16( poly->coords[i - 1].x ),
             vvr_fix_endian_16( poly->coords[i - 1].y ),
-            vvr_fix_endian_16( poly->coords[i].x ),
-            vvr_fix_endian_16( poly->coords[i].y ),
+            vvr_fix_endian_16( poly->coords[i0].x ),
+            vvr_fix_endian_16( poly->coords[i0].y ),
             vvr_fix_endian_16( poly->coords[i - 1].x ),
             vvr_fix_endian_16( poly->coords[i - 1].y ),
-            vvr_fix_endian_16( poly->coords[i].x ),
-            vvr_fix_endian_16( poly->coords[i].y ),
-            0, STATIC_HEIGHT, color );
+            vvr_fix_endian_16( poly->coords[i0].x ),
+            vvr_fix_endian_16( poly->coords[i0].y ),
+            zl, zh, color );
       }
-   }
-   if( VVR_POLYPROF_SOLID == poly->vprofile ) {
-      /* Solid shape gets one last vertical wall. */
-      ogl_draw_face_seg( 
-         vvr_fix_endian_16( poly->coords[i - 1].x ),
-         vvr_fix_endian_16( poly->coords[i - 1].y ),
-         vvr_fix_endian_16( poly->coords[0].x ), /* Wrap around to the */
-         vvr_fix_endian_16( poly->coords[0].y ), /* first coord! */
-         vvr_fix_endian_16( poly->coords[i - 1].x ),
-         vvr_fix_endian_16( poly->coords[i - 1].y ),
-         vvr_fix_endian_16( poly->coords[0].x ),
-         vvr_fix_endian_16( poly->coords[0].y ),
-         0, STATIC_HEIGHT, color );
    }
 
    /* Draw top (flat or angled segments that converge in the center. */
-   ogl_draw_top( poly, STATIC_HEIGHT, 0, color );
+   ogl_draw_top( poly, zl, zh, color );
 }
 
 /* === */
@@ -281,7 +289,7 @@ void ogl_opengl_frame() {
    glPushMatrix();
 
    glRotatef( g_rot, 0, 1, 0 );
-   glTranslatef( g_x, -20.0f, g_z );
+   glTranslatef( g_x, g_y, g_z );
 
 #ifdef DEBUG
    printf( "drawing...\n" );
@@ -312,11 +320,11 @@ void ogl_opengl_frame() {
          "POSN", g_vvr_buf, g_vvr_sz, 1, &j );
       assert( NULL != posn );
 
-      glScalef( 0.3f, 0.3f, 0.3f );
+      glScalef( 0.1f, 0.1f, 0.1f );
 
       glTranslatef(
          vvr_fix_endian_16( posn->x.integer ),
-         0,
+         vvr_fix_endian_16( posn->z.integer ),
          vvr_fix_endian_16( posn->y.integer ) );
 
       /* Dive into the PRSM section for POLY sections. */
@@ -357,6 +365,16 @@ void ogl_opengl_frame() {
 void ogl_key_in( unsigned char key, int x, int y ) {
 
    switch( key ) {
+      case 'e':
+         g_y += 5.0f;
+         glutPostRedisplay();
+         break;
+
+      case 'q':
+         g_y -= 5.0f;
+         glutPostRedisplay();
+         break;
+
       case 'w':
          g_z += cosf( (g_rot * (2.0f * 3.14f)) / 360.0f ) * 0.5f;
          g_x -= sinf( (g_rot * (2.0f * 3.14f)) / 360.0f ) * 0.5f;
