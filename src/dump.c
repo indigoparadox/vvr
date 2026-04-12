@@ -11,15 +11,15 @@
 #define DUMP_FLAG_HEX      0x04
 
 void dump_posn( struct VVR_SECT_POSN* posn, uint8_t flags, uint8_t cols ) {
-   printf( "pos: X: %d.%d, Y: %d.%d, Z: %d.%d\n",
-      vvr_fix_endian_16( posn->x.integer ), /* X.dec */
-      vvr_fix_endian_16( posn->x.fraction ), /* X.frac */
-      vvr_fix_endian_16( posn->y.integer ), /* Y.dec */
-      vvr_fix_endian_16( posn->y.fraction ), /* Y.frac */
-      vvr_fix_endian_16( posn->z.integer ), /* Z.dec */
-      vvr_fix_endian_16( posn->z.fraction ) /* Z.frac */
-      );
-      
+   printf( "pos: X: %f, Y: %f, Z: %f\n",
+      vvr_float_from_fix( &(posn->x) ),
+      vvr_float_from_fix( &(posn->y) ),
+      vvr_float_from_fix( &(posn->z) ) );
+
+    printf( "rot: X: %f, Y: %f, Z: %f\n",
+      vvr_float_from_fix( &(posn->rx) ),
+      vvr_float_from_fix( &(posn->ry) ),
+      vvr_float_from_fix( &(posn->rz) ) );
 }
 
 /* === */
@@ -68,7 +68,7 @@ void dump_poly( struct VVR_SECT_POLY* poly, uint8_t flags, uint8_t cols ) {
       }
       printf( "};\n" );
    } else {
-      printf( "poly: %s (%d segs): ", shape_str,
+      printf( "poly: %s (%d segs):\n", shape_str,
          vvr_fix_endian_32( poly->coords_ct ) );
       for( i = 0 ; vvr_fix_endian_32( poly->coords_ct ) > i ; i++ ) {
          if( DUMP_FLAG_HEX == (DUMP_FLAG_HEX & flags) ) {

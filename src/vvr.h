@@ -15,6 +15,10 @@
 #define vvr_fix_endian_16( x ) \
    (int16_t)(((uint16_t)(x) >> 8) | ((uint16_t)(x) << 8))
 
+#define vvr_float_from_fix( fp ) \
+   ((float)((vvr_fix_endian_16( (fp)->integer ) << 16) | \
+      (vvr_fix_endian_16( (fp)->fraction ))) / 65535.0f)
+
 struct IFF_FORM {
    char form[4];
    uint32_t vvr_sz;

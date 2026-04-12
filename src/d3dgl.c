@@ -12,7 +12,7 @@
 #define OGL_SCREEN_W 1024
 #define OGL_SCREEN_H 768
 
-#define R_CONST 45.0f
+#define R_CONST 55.0f
 
 #define STATIC_BULGE 1.0f
 
@@ -328,12 +328,9 @@ void ogl_opengl_frame() {
          vvr_fix_endian_16( posn->x.integer ),
          vvr_fix_endian_16( posn->z.integer ),
          vvr_fix_endian_16( posn->y.integer ) );
-      glRotatef(
-         (float)vvr_fix_endian_16( posn->rx.integer ) * R_CONST, 0, 0, 1 );
-      glRotatef(
-         (float)vvr_fix_endian_16( posn->ry.integer ) * R_CONST, 1, 0, 0 );
-      glRotatef(
-         (float)vvr_fix_endian_16( posn->rz.integer ) * R_CONST, 0, 1, 0 );
+      glRotatef( vvr_float_from_fix( &(posn->rx) ) * R_CONST, 0, 0, 1 );
+      glRotatef( vvr_float_from_fix( &(posn->ry) ) * R_CONST, 1, 0, 0 );
+      glRotatef( vvr_float_from_fix( &(posn->rz) ) * R_CONST, 0, 1, 0 );
 
       /* Dive into the PRSM section for POLY sections. */
       j = i + sizeof( struct VVR_SECT_HEAD );
