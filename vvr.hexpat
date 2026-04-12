@@ -4,7 +4,7 @@ import type.magic;
 
 struct Fixed_Point_32 {
     s16 integer;
-    s16 fraction;
+    u16 fraction;
 } [[format_read( "print_fp" ), format_write( "read_fp" )]];
 
 fn print_fp( auto v ) {

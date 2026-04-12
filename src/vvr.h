@@ -74,6 +74,9 @@ struct VVR_SECT_POSN {
    struct VVR_FP32 x;
    struct VVR_FP32 y;
    struct VVR_FP32 z;
+   struct VVR_FP32 rx;
+   struct VVR_FP32 ry;
+   struct VVR_FP32 rz;
 } __attribute__((packed));
 
 struct VVR_SECT_COLR {
