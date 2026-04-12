@@ -2,6 +2,7 @@
 
 import type.magic;
 
+// Very unsure about this, but it seems to work approximately.
 struct Fixed_Point_32 {
     s16 integer;
     u16 fraction;
@@ -74,6 +75,7 @@ struct IFF_Chunk_PREF_Dispatch {
 
 using IFF_Chunk_PRSM_Dispatch;
 
+// Positional/transform information for the current PRSM.
 struct IFF_Chunk_POSN {
     u32 size;
     Coord3D position;
@@ -109,6 +111,7 @@ struct POLYProfile {
     (1): str vprofile_str = "solid";
     (3): str vprofile_str = "symmetric";
     (4): str vprofile_str = "dome";
+    // 2 is Pyramid OR cube?
     (_): str vprofile_str = "unknown";
     }
 } [[format_read( "print_polyprofile" )]];
@@ -123,19 +126,20 @@ struct IFF_Chunk_POLY {
     u8 u1a; // ???
     u8 u1b; // ???
     u8 u1c; // ???
-    POLYProfile vertical_profile;
+    POLYProfile vertical_profile; // How to extrude the shape outlined by 2D coords.
     u16 vertical_segments;
     s16 z1; // Sometimes top, sometimes bottom.
     u16 u2; // ???
     s16 z2; // Sometimes top, sometimes bottom.
-    u32 u3;
-    u32 u4;
-    u32 u5;
-    u32 u6;
-    u32 num_coords;
+    u32 u3; // ???
+    u32 u4; // ???
+    u32 u5; // ??? 
+    u32 u6; // ???
+    u32 num_coords; // As it suggests, # of coord structs to follow.
     Coord2D coords[while( $ < start_offset + size )];
 } [[hex::visualize( "scatter_plot", plot_poly_coords( this, 0 ), plot_poly_coords( this, 1 ) )]];
 
+// When objects are grouped together.
 struct IFF_Chunk_PGRP_Dispatch {
     char id[4];
     
@@ -160,6 +164,7 @@ struct IFF_Chunk_PGRP_Dispatch {
     }
 } [[ name( id )]];
 
+// An atomic shape/object, formed by drawing a shape and extruding it.
 struct IFF_Chunk_PRSM_Dispatch {
     char id[4];
     
