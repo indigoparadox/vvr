@@ -43,6 +43,14 @@ uint8_t* next_sect(
 #endif /* VVR_DEBUG */
          *cursor += 8;
          continue;
+
+      } else if( 0 == strncmp( sect->head.section, "PGRP", 4 ) ) {
+         /* Skip ROOT head, since it encompasses many useful sections. */
+#ifdef VVR_DEBUG
+         printf( "skipping PGRP\n" );
+#endif /* VVR_DEBUG */
+         *cursor += 8;
+         continue;
       }
 
       if( 0 == strncmp( sect->head.section, find, 4 ) ) {

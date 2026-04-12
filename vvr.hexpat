@@ -3,8 +3,8 @@
 import type.magic;
 
 struct Fixed_Point_32 {
-    u16 integer;
-    u16 fraction;
+    s16 integer;
+    s16 fraction;
 } [[format_read( "print_fp" ), format_write( "read_fp" )]];
 
 fn print_fp( auto v ) {
@@ -125,9 +125,9 @@ struct IFF_Chunk_POLY {
     u8 u1c; // ???
     POLYProfile vertical_profile;
     u16 vertical_segments;
-    u16 vertical_scale; // ???
+    s16 z1; // Sometimes top, sometimes bottom.
     u16 u2; // ???
-    u16 height; // ???
+    s16 z2; // Sometimes top, sometimes bottom.
     u32 u3;
     u32 u4;
     u32 u5;

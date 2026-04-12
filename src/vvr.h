@@ -61,9 +61,9 @@ struct VVR_SECT_POLY {
    uint8_t u1[3];
    uint8_t vprofile;
    uint16_t vsegs;
-   uint16_t vscale;
+   int16_t z1;
    uint16_t u2;
-   uint16_t height;
+   int16_t z2;
    uint32_t u3[4];
    uint32_t coords_ct;
    struct VVR_COORD_2D coords[];
